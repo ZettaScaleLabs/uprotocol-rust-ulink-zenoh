@@ -1,0 +1,8 @@
+[package]
+name = "uprotocol_zenoh_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+#uprotocol_sdk = { git = "https://github.com/SoftwareDefinedVehicle/uprotocol-sdk-rust_fork.git", branch = "main" }
+uprotocol_sdk = { path = "../uprotocol-sdk-rust" }
