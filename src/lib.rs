@@ -1,9 +1,10 @@
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
-use uprotocol_sdk::rpc::{RpcClient, RpcClientResult, RpcMapperError};
-use uprotocol_sdk::transport::datamodel::{UAttributes, UListener, UPayload, UStatus, UTransport};
-use uprotocol_sdk::uri::datamodel::{UEntity, UUri};
+use uprotocol_sdk::{
+    rpc::{RpcClient, RpcClientResult, RpcMapperError},
+    transport::datamodel::{UAttributes, UListener, UPayload, UStatus, UTransport},
+    uri::datamodel::{UEntity, UUri},
+};
 
 pub struct ZenohListener {}
 
