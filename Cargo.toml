@@ -4,5 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Official one
+#uprotocol_sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "uprotocol_1.5" }
+# PR
 #uprotocol_sdk = { git = "https://github.com/SoftwareDefinedVehicle/uprotocol-sdk-rust_fork.git", branch = "main" }
+# Debug
 uprotocol_sdk = { path = "../uprotocol-sdk-rust" }
