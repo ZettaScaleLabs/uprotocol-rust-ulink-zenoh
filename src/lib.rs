@@ -8,7 +8,7 @@ use uprotocol_sdk::uri::datamodel::{UEntity, UUri};
 pub struct ZenohListener {}
 
 impl UListener for ZenohListener {
-    fn on_receive(&self, topic: UUri, payload: UPayload, attributes: UAttributes) -> UStatus {
+    fn on_receive(&self, _topic: UUri, _payload: UPayload, _attributes: UAttributes) -> UStatus {
         UStatus::fail_with_msg("Not implemented")
     }
 }
@@ -17,9 +17,9 @@ pub struct Zenoh {}
 
 impl RpcClient for Zenoh {
     fn invoke_method(
-        topic: UUri,
-        payload: UPayload,
-        attributes: UAttributes,
+        _topic: UUri,
+        _payload: UPayload,
+        _attributes: UAttributes,
     ) -> Pin<Box<dyn Future<Output = RpcClientResult>>> {
         Box::pin(async { Err(RpcMapperError::UnknownType("Not implemented".to_string())) })
     }
@@ -28,25 +28,27 @@ impl RpcClient for Zenoh {
 impl UTransport for Zenoh {
     type L = ZenohListener;
 
-    fn register(&self, uentity: UEntity, token: &[u8]) -> UStatus {
+    fn register(&self, _uentity: UEntity, _token: &[u8]) -> UStatus {
         UStatus::fail_with_msg("Not implemented")
     }
 
-    fn send(&self, topic: UUri, payload: UPayload, attributes: UAttributes) -> UStatus {
+    fn send(&self, _topic: UUri, _payload: UPayload, _attributes: UAttributes) -> UStatus {
         UStatus::fail_with_msg("Not implemented")
     }
 
-    fn register_listener(&self, topic: UUri, listener: ZenohListener) -> UStatus {
+    fn register_listener(&self, _topic: UUri, _listener: ZenohListener) -> UStatus {
         UStatus::fail_with_msg("Not implemented")
     }
 
-    fn unregister_listener(&self, topic: UUri, listener: ZenohListener) -> UStatus {
+    fn unregister_listener(&self, _topic: UUri, _listener: ZenohListener) -> UStatus {
         UStatus::fail_with_msg("Not implemented")
     }
 }
 
+#[allow(dead_code)]
 struct ZenohUtils {}
 
+#[allow(dead_code)]
 impl ZenohUtils {
     fn replace_special_chars() {}
     fn create_serialized_ce() {}
