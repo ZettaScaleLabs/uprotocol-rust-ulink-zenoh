@@ -1,3 +1,13 @@
+// Lint rules
+#![deny(
+    // Including clippy::correctness, clippy::style, clippy::complexity, clippy::perf
+    clippy::all,
+    clippy::pedantic,
+    //clippy::cargo,
+    //clippy::restriction,
+    //clippy::nursery,
+)]
+
 use std::{future::Future, pin::Pin};
 
 use uprotocol_sdk::{
