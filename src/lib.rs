@@ -1,13 +1,3 @@
-// Lint rules
-#![deny(
-    // Including clippy::correctness, clippy::style, clippy::complexity, clippy::perf
-    clippy::all,
-    clippy::pedantic,
-    //clippy::cargo,
-    //clippy::restriction,
-    //clippy::nursery,
-)]
-
 use std::{future::Future, pin::Pin};
 
 use cloudevents::Event;
@@ -115,8 +105,8 @@ impl ZenohUtils {
         }
     }
     fn create_serialized_ce(
-        uri: UUri,
-        payload: UPayload,
+        uri: &UUri,
+        payload: &UPayload,
         attributes: UAttributes,
     ) -> (Event, Vec<u8>) {
         let ce_attributes = UCloudEventAttributesBuilder::new()
@@ -126,7 +116,7 @@ impl ZenohUtils {
             .build();
         let ce = match attributes.message_type {
             UMessageType::Publish => UCloudEventBuilder::publish(
-                &LongUriSerializer::serialize(&uri),
+                &LongUriSerializer::serialize(uri),
                 &payload.to_any().unwrap(),
                 &ce_attributes,
             ),
@@ -137,7 +127,7 @@ impl ZenohUtils {
                 ));
                 UCloudEventBuilder::request(
                     &applicationuri_for_rpc,
-                    &LongUriSerializer::serialize(&uri),
+                    &LongUriSerializer::serialize(uri),
                     &payload.to_any().unwrap(),
                     &ce_attributes,
                 )
@@ -150,7 +140,7 @@ impl ZenohUtils {
                 let request_id = attributes.id.to_string();
                 UCloudEventBuilder::response(
                     &applicationuri_for_rpc,
-                    &LongUriSerializer::serialize(&uri),
+                    &LongUriSerializer::serialize(uri),
                     &request_id,
                     &payload.to_any().unwrap(),
                     &ce_attributes,
