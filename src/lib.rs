@@ -4,7 +4,7 @@ use cloudevents::Event;
 use uprotocol_sdk::{
     cloudevent::{
         builder::UCloudEventBuilder,
-        datamodel::{Priority, UCloudEventAttributesBuilder},
+        datamodel::{Priority, UCloudEvent, UCloudEventAttributesBuilder},
         serializer::{CloudEventJsonSerializer, CloudEventSerializer},
     },
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
@@ -20,6 +20,8 @@ use uprotocol_sdk::{
         validator::UriValidator,
     },
 };
+use zenoh::config::Config;
+use zenoh::prelude::sync::*;
 
 pub struct ZenohListener {}
 
@@ -48,7 +50,7 @@ impl UTransport for Zenoh {
         UStatus::fail_with_msg("Not implemented")
     }
 
-    fn send(&self, topic: UUri, _payload: UPayload, attributes: UAttributes) -> UStatus {
+    fn send(&self, topic: UUri, payload: UPayload, attributes: UAttributes) -> UStatus {
         if let UStatus::Fail(fail_status) =
             Validators::get_validator(&attributes).validate(&attributes)
         {
@@ -59,22 +61,27 @@ impl UTransport for Zenoh {
                 if let UStatus::Fail(fail_status) = UriValidator::validate(&topic) {
                     return UStatus::Fail(fail_status);
                 }
-                // TODO: Send Zenoh data
-                UStatus::ok_with_id("successfully publish value to zenoh_up")
+                let (ce, serialized_str) =
+                    ZenohUtils::create_serialized_ce(&topic, &payload, attributes);
+                ZenohUtils::send_data_to_zenoh(
+                    &UCloudEvent::get_source(&ce).unwrap(),
+                    serialized_str,
+                );
+                UStatus::ok_with_id("successfully publish value to Zenoh")
             }
             UMessageType::Request => {
                 if let UStatus::Fail(fail_status) = UriValidator::validate_rpc_method(&topic) {
                     return UStatus::Fail(fail_status);
                 }
                 // TODO: Send Zenoh request
-                UStatus::ok_with_id("successfully send rpc request to zenoh")
+                UStatus::ok_with_id("successfully send rpc request to Zenoh")
             }
             UMessageType::Response => {
                 if let UStatus::Fail(fail_status) = UriValidator::validate_rpc_response(&topic) {
                     return UStatus::Fail(fail_status);
                 }
                 // TODO: Send Zenoh response
-                UStatus::ok_with_id("successfully send rpc response to zenoh")
+                UStatus::ok_with_id("successfully send rpc response to Zenoh")
             }
         }
     }
@@ -149,11 +156,28 @@ impl ZenohUtils {
         };
         let json_serializer = CloudEventJsonSerializer;
         let serialized_bytes = json_serializer.serialize(&ce).unwrap();
+        // TODO: Should we encode with base64
         (ce, serialized_bytes)
     }
-    //fn replace_special_chars() {}
+
+    fn replace_special_chars(topic: &str) -> String {
+        // https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#source-1
+        // TODO: Should we also replace '#' and '?'
+        // Replace // with ==
+        let topic = topic.replace("//", "==");
+        // Remove leading and trailing /
+        topic.trim_matches('/').to_string()
+    }
+
+    fn send_data_to_zenoh(topic: &str, data_to_send: Vec<u8>) {
+        let new_topic = ZenohUtils::replace_special_chars(topic);
+        let session = zenoh::open(Config::default()).res().unwrap();
+        session.put(&new_topic, data_to_send).res().unwrap();
+        session.close().res().unwrap();
+    }
+
+    // TODO
     //fn add_endpoint() {}
-    //fn send_data_to_zenoh(&self) {}
     //fn send_rpc_request_zenoh(&self) {}
     //fn register_rpc(&self) {}
 }
