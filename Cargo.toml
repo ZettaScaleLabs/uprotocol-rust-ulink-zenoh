@@ -12,12 +12,13 @@ pedantic = "deny"
 
 [dependencies]
 # Official one
-#uprotocol_sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "uprotocol_1.5" }
+uprotocol-sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "uprotocol_1.5" }
 # PR
-#uprotocol_sdk = { git = "https://github.com/SoftwareDefinedVehicle/uprotocol-sdk-rust_fork.git", branch = "main" }
+#uprotocol-sdk = { git = "https://github.com/SoftwareDefinedVehicle/uprotocol-sdk-rust_fork.git", branch = "main" }
 # Debug
-uprotocol_sdk = { path = "../uprotocol-sdk-rust" }
+#uprotocol-sdk = { path = "../uprotocol-sdk-rust" }
 prost = "0.12"
 prost-types = "0.12"
 cloudevents-sdk = { version = "0.7.0" }
 zenoh = "0.10.0-rc"
+async-trait = "0.1"
