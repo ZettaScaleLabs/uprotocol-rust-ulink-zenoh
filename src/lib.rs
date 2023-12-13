@@ -4,13 +4,23 @@ use uprotocol_sdk::{
     transport::datamodel::UTransport,
     uprotocol::{UAttributes, UEntity, UMessage, UPayload, UStatus, UUri},
 };
+use zenoh::config::Config;
+use zenoh::prelude::r#async::*;
 
 pub struct ZenohListener {}
+pub struct ULink {
+    _session: Session,
+}
 
-pub struct Zenoh {}
+impl ULink {
+    pub async fn new() -> anyhow::Result<ULink> {
+        let session = zenoh::open(Config::default()).res().await.unwrap();
+        Ok(ULink { _session: session })
+    }
+}
 
 #[async_trait]
-impl RpcClient for Zenoh {
+impl RpcClient for ULink {
     async fn invoke_method(
         _topic: UUri,
         payload: UPayload,
@@ -21,7 +31,7 @@ impl RpcClient for Zenoh {
 }
 
 #[async_trait]
-impl UTransport for Zenoh {
+impl UTransport for ULink {
     async fn authenticate(&self, _entity: UEntity) -> Result<(), UStatus> {
         Err(UStatus::fail("Not implemented"))
     }
