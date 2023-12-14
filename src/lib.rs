@@ -4,14 +4,17 @@ use uprotocol_sdk::{
     transport::datamodel::UTransport,
     uprotocol::UCode,
     uprotocol::{UAttributes, UEntity, UMessage, UPayload, UStatus, UUri},
-    uri::validator::UriValidator,
+    uri::{
+        serializer::{LongUriSerializer, UriSerializer},
+        validator::UriValidator,
+    },
 };
 use zenoh::config::Config;
 use zenoh::prelude::r#async::*;
 
 pub struct ZenohListener {}
 pub struct ULink {
-    _session: Session,
+    session: Session,
 }
 
 impl ULink {
@@ -24,7 +27,7 @@ impl ULink {
                 "Unable to open Zenoh session",
             ));
         };
-        Ok(ULink { _session: session })
+        Ok(ULink { session })
     }
 }
 
@@ -71,11 +74,26 @@ impl UTransport for ULink {
         }
         // TODO: Validate UAttributes (maybe without self)
 
-        // TODO: Not implemented
-        Err(UStatus::fail_with_code(
-            UCode::Unimplemented,
-            "Not implemented",
-        ))
+        // Get Zenoh key
+        // TODO: Transform Zenoh's key
+        let Ok(zenoh_key) = LongUriSerializer::serialize(&topic) else {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to transform to Zenoh key",
+            ));
+        };
+
+        // TODO: Get payload
+
+        // Send data
+        if self.session.put(&zenoh_key, "data").res().await.is_err() {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to send with Zenoh",
+            ));
+        }
+
+        Ok(())
     }
 
     async fn register_listener(
