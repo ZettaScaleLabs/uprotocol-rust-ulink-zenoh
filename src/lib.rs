@@ -29,6 +29,31 @@ impl ULink {
         };
         Ok(ULink { session })
     }
+
+    fn to_zenoh_key(uri: &UUri) -> Result<String, UStatus> {
+        // uProtocol Uri format: https://github.com/eclipse-uprotocol/uprotocol-spec/blob/6f0bb13356c0a377013bdd3342283152647efbf9/basics/uri.adoc#11-rfc3986
+        // up://<user@><device>.<domain><:port>/<ue_name>/<ue_version>/<resource|rpc.method><#message>
+        //            UAuthority               /        UEntity       /           UResource
+        let Ok(uri_string) = LongUriSerializer::serialize(uri) else {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to transform to Zenoh key",
+            ));
+        };
+        // TODO: Able to be optimized without too many copy
+        let mut zenoh_key = String::from("zenoh_uprotocol");
+        if uri.authority.is_some() {
+            zenoh_key += "/";
+        }
+        // TODO: Check whether these characters are all used in UUri.
+        zenoh_key += &uri_string
+            .replace('*', "\\8")
+            .replace('$', "\\4")
+            .replace('?', "\\0")
+            .replace('#', "\\3")
+            .replace("//", "\\/");
+        Ok(zenoh_key)
+    }
 }
 
 #[async_trait]
@@ -75,13 +100,7 @@ impl UTransport for ULink {
         // TODO: Validate UAttributes (maybe without self)
 
         // Get Zenoh key
-        // TODO: Transform Zenoh's key
-        let Ok(zenoh_key) = LongUriSerializer::serialize(&topic) else {
-            return Err(UStatus::fail_with_code(
-                UCode::Internal,
-                "Unable to transform to Zenoh key",
-            ));
-        };
+        let zenoh_key = ULink::to_zenoh_key(&topic)?;
 
         // TODO: Get payload
 
@@ -99,7 +118,7 @@ impl UTransport for ULink {
     async fn register_listener(
         &self,
         topic: UUri,
-        _listener: Box<dyn Fn(UMessage) + Send + 'static>,
+        _listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
     ) -> Result<String, UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
@@ -109,11 +128,27 @@ impl UTransport for ULink {
             ));
         }
 
-        // TODO: Not implemented
-        Err(UStatus::fail_with_code(
-            UCode::Unimplemented,
-            "Not implemented",
-        ))
+        // Get Zenoh key
+        let zenoh_key = ULink::to_zenoh_key(&topic)?;
+
+        if self
+            .session
+            .declare_subscriber(&zenoh_key)
+            .callback_mut(move |_sample| {
+                println!("Zenoh callback");
+            })
+            .res()
+            .await
+            .is_err()
+        {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to register callback with Zenoh",
+            ));
+        }
+
+        // TODO: Need to assign special string
+        Ok(String::from("MyListener"))
     }
 
     async fn unregister_listener(&self, topic: UUri, _listener: &str) -> Result<(), UStatus> {

@@ -1,4 +1,5 @@
-use std::{thread, time};
+use async_std::task;
+use std::time;
 use uprotocol_sdk::{
     transport::builder::UAttributesBuilder,
     transport::datamodel::UTransport,
@@ -15,10 +16,13 @@ async fn main() {
     let uuri = UUri {
         entity: Some(UEntity {
             name: "body.access".to_string(),
+            version_major: Some(1),
             ..Default::default()
         }),
         resource: Some(UResource {
             name: "door".to_string(),
+            instance: Some("front_left".to_string()),
+            message: Some("Door".to_string()),
             ..Default::default()
         }),
         ..Default::default()
@@ -38,7 +42,7 @@ async fn main() {
         //    format: UPayloadFormat::UpayloadFormatText as i32,
         //    data: Some(Data::Value()),
         //};
-        thread::sleep(time::Duration::from_millis(1000));
+        task::sleep(time::Duration::from_millis(1000)).await;
         println!("Sending data {} to {}...", cnt, uuri.to_string());
         if let Err(ustatus) = publisher
             .send(uuri.clone(), payload, attributes.clone())
