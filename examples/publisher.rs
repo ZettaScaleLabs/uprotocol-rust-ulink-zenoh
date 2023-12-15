@@ -34,19 +34,16 @@ async fn main() {
     let mut cnt: u64 = 0;
     loop {
         let data = format!("{}", cnt);
-        let value = data.as_bytes().to_vec();
         let payload = UPayload {
             length: Some(0),
             format: UPayloadFormat::UpayloadFormatText as i32,
-            data: Some(Data::Value(value)),
+            data: Some(Data::Value(data.as_bytes().to_vec())),
         };
         println!("Sending {} to {}...", data, uuri.to_string());
-        if let Err(ustatus) = publisher
+        publisher
             .send(uuri.clone(), payload, attributes.clone())
             .await
-        {
-            panic!("{}: {}", ustatus.code, ustatus.message());
-        }
+            .unwrap();
         task::sleep(time::Duration::from_millis(1000)).await;
         cnt += 1;
     }

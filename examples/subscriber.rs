@@ -7,11 +7,10 @@ use uprotocol_sdk::{
 use uprotocol_zenoh_rust::ULink;
 
 fn callback(msg: UMessage) {
-    let payload = msg.payload.unwrap();
     let uri = msg.source.unwrap().to_string();
-    if let Data::Value(v) = payload.data.unwrap() {
+    if let Data::Value(v) = msg.payload.unwrap().data.unwrap() {
         let value = v.into_iter().map(|c| c as char).collect::<String>();
-        println!("Receiving {:?} from {}", value, uri);
+        println!("Receiving {} from {}", value, uri);
     }
 }
 
@@ -37,18 +36,12 @@ async fn main() {
     };
 
     println!("Register the listener...");
-    let _listener_str = match subscriber.register_listener(uuri, Box::new(callback)).await {
-        Ok(s) => s,
-        Err(ustatus) => {
-            panic!("{}: {}", ustatus.code, ustatus.message());
-        }
-    };
+    subscriber
+        .register_listener(uuri, Box::new(callback))
+        .await
+        .unwrap();
 
     loop {
         std::thread::sleep(time::Duration::from_millis(1000));
     }
-
-    //if let Err(ustatus) = subscriber.unregister_listener(uuri, &listener_str).await {
-    //    panic!("{}: {}", ustatus.code, ustatus.message());
-    //}
 }
