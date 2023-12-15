@@ -1,4 +1,3 @@
-use async_std::task;
 use std::time;
 use uprotocol_sdk::{
     transport::datamodel::UTransport,
@@ -42,9 +41,7 @@ async fn main() {
     };
 
     loop {
-        //task::sleep(time::Duration::from_millis(1000)).await;
         std::thread::sleep(time::Duration::from_millis(1000));
-        println!("Waiting...");
     }
 
     //if let Err(ustatus) = subscriber.unregister_listener(uuri, &listener_str).await {

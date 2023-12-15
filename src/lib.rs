@@ -125,7 +125,7 @@ impl UTransport for ULink {
     async fn register_listener(
         &mut self,
         topic: UUri,
-        _listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
+        listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
     ) -> Result<String, UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
@@ -142,7 +142,13 @@ impl UTransport for ULink {
             .session
             .declare_subscriber(&zenoh_key)
             .callback_mut(move |_sample| {
-                println!("Zenoh callback");
+                // TODO: Fill the message
+                let msg = UMessage {
+                    source: Some(topic.clone()),
+                    attributes: None,
+                    payload: None,
+                };
+                listener(msg);
             })
             .res()
             .await
