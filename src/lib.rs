@@ -110,9 +110,14 @@ impl UTransport for ULink {
         // Get Zenoh key
         let zenoh_key = ULink::to_zenoh_key(&topic)?;
 
-        // TODO: Get payload
+        // Serialize UPayload to protobuf
         let mut buf = vec![];
-        payload.encode(&mut buf).unwrap();
+        let Ok(_) = payload.encode(&mut buf) else {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Unable to encode UPayload",
+            ));
+        };
 
         // Send data
         if self
@@ -155,13 +160,14 @@ impl UTransport for ULink {
             .callback_mut(move |sample| {
                 // TODO: Fill the Attributes
                 let v = sample.payload.contiguous();
-                let payload: UPayload = Message::decode(&*v).unwrap();
-                let msg = UMessage {
-                    source: Some(topic.clone()),
-                    attributes: None,
-                    payload: Some(payload),
-                };
-                listener(msg);
+                if let Ok(payload) = Message::decode(&*v) {
+                    let msg = UMessage {
+                        source: Some(topic.clone()),
+                        attributes: None,
+                        payload: Some(payload),
+                    };
+                    listener(msg);
+                }
             })
             .res()
             .await
