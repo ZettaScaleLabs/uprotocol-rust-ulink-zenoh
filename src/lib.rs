@@ -123,7 +123,7 @@ impl UTransport for ULink {
     }
 
     async fn register_listener(
-        &mut self,
+        &self,
         topic: UUri,
         listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
     ) -> Result<String, UStatus> {
@@ -168,7 +168,7 @@ impl UTransport for ULink {
         Ok(zenoh_key)
     }
 
-    async fn unregister_listener(&mut self, topic: UUri, listener: &str) -> Result<(), UStatus> {
+    async fn unregister_listener(&self, topic: UUri, listener: &str) -> Result<(), UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
             return Err(UStatus::fail_with_code(
