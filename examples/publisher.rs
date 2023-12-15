@@ -3,7 +3,7 @@ use std::time;
 use uprotocol_sdk::{
     transport::builder::UAttributesBuilder,
     transport::datamodel::UTransport,
-    uprotocol::{UEntity, UPayload, UPriority, UResource, UUri},
+    uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UResource, UUri},
 };
 use uprotocol_zenoh_rust::ULink;
 
@@ -33,23 +33,21 @@ async fn main() {
 
     let mut cnt: u64 = 0;
     loop {
-        // create the payload
-        let payload = UPayload::default();
-        // TODO: Create UPayload
-        //let data = Any
-        //let payload = UPayload {
-        //    length: (),
-        //    format: UPayloadFormat::UpayloadFormatText as i32,
-        //    data: Some(Data::Value()),
-        //};
-        task::sleep(time::Duration::from_millis(1000)).await;
-        println!("Sending data {} to {}...", cnt, uuri.to_string());
+        let data = format!("{}", cnt);
+        let value = data.as_bytes().to_vec();
+        let payload = UPayload {
+            length: Some(0),
+            format: UPayloadFormat::UpayloadFormatText as i32,
+            data: Some(Data::Value(value)),
+        };
+        println!("Sending {} to {}...", data, uuri.to_string());
         if let Err(ustatus) = publisher
             .send(uuri.clone(), payload, attributes.clone())
             .await
         {
             panic!("{}: {}", ustatus.code, ustatus.message());
         }
+        task::sleep(time::Duration::from_millis(1000)).await;
         cnt += 1;
     }
 }

@@ -1,20 +1,24 @@
 use std::time;
 use uprotocol_sdk::{
     transport::datamodel::UTransport,
-    uprotocol::{UEntity, UMessage, UResource, UUri},
+    uprotocol::{Data, UEntity, UMessage, UResource, UUri},
 };
 
 use uprotocol_zenoh_rust::ULink;
 
-fn callback(_msg: UMessage) {
-    println!("This is callcack");
-    // TODO: handling msg
+fn callback(msg: UMessage) {
+    let payload = msg.payload.unwrap();
+    let uri = msg.source.unwrap().to_string();
+    if let Data::Value(v) = payload.data.unwrap() {
+        let value = v.into_iter().map(|c| c as char).collect::<String>();
+        println!("Receiving {:?} from {}", value, uri);
+    }
 }
 
 #[async_std::main]
 async fn main() {
     println!("uProtocol subscriber example");
-    let mut subscriber = ULink::new().await.unwrap();
+    let subscriber = ULink::new().await.unwrap();
 
     // create uuri
     let uuri = UUri {

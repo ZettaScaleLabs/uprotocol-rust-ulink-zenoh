@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use prost::Message;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uprotocol_sdk::{
@@ -94,7 +95,7 @@ impl UTransport for ULink {
     async fn send(
         &self,
         topic: UUri,
-        _payload: UPayload,
+        payload: UPayload,
         _attributes: UAttributes,
     ) -> Result<(), UStatus> {
         // Do the validation
@@ -110,9 +111,19 @@ impl UTransport for ULink {
         let zenoh_key = ULink::to_zenoh_key(&topic)?;
 
         // TODO: Get payload
+        let mut buf = vec![];
+        payload.encode(&mut buf).unwrap();
 
         // Send data
-        if self.session.put(&zenoh_key, "data").res().await.is_err() {
+        if self
+            .session
+            .put(&zenoh_key, buf)
+            // TODO: Should be discussed (should be protobuf)
+            .encoding(Encoding::APP_CUSTOM)
+            .res()
+            .await
+            .is_err()
+        {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to send with Zenoh",
@@ -141,12 +152,14 @@ impl UTransport for ULink {
         if let Ok(subscriber) = self
             .session
             .declare_subscriber(&zenoh_key)
-            .callback_mut(move |_sample| {
-                // TODO: Fill the message
+            .callback_mut(move |sample| {
+                // TODO: Fill the Attributes
+                let v = sample.payload.contiguous();
+                let payload: UPayload = Message::decode(&*v).unwrap();
                 let msg = UMessage {
                     source: Some(topic.clone()),
                     attributes: None,
-                    payload: None,
+                    payload: Some(payload),
                 };
                 listener(msg);
             })
