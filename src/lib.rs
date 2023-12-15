@@ -48,10 +48,9 @@ impl ULink {
                 "Unable to transform to Zenoh key",
             ));
         };
-        // TODO: Able to be optimized without too many copy
         let mut zenoh_key = String::from("zenoh_uprotocol");
         if uri.authority.is_some() {
-            zenoh_key += "/";
+            zenoh_key.push_str("/");
         }
         // TODO: Check whether these characters are all used in UUri.
         zenoh_key += &uri_string
@@ -153,29 +152,36 @@ impl UTransport for ULink {
 
         // Get Zenoh key
         let zenoh_key = ULink::to_zenoh_key(&topic)?;
+        // Generate listener string for users to delete
+        let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
+        while self.map.lock().unwrap().contains_key(&hashmap_key) {
+            hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
+        }
 
+        // Setup callback
+        let callback = move |sample: Sample| {
+            // TODO: Fill the Attributes
+            let v = sample.payload.contiguous();
+            if let Ok(payload) = Message::decode(&*v) {
+                let msg = UMessage {
+                    source: Some(topic.clone()),
+                    attributes: None,
+                    payload: Some(payload),
+                };
+                listener(msg);
+            }
+        };
         if let Ok(subscriber) = self
             .session
             .declare_subscriber(&zenoh_key)
-            .callback_mut(move |sample| {
-                // TODO: Fill the Attributes
-                let v = sample.payload.contiguous();
-                if let Ok(payload) = Message::decode(&*v) {
-                    let msg = UMessage {
-                        source: Some(topic.clone()),
-                        attributes: None,
-                        payload: Some(payload),
-                    };
-                    listener(msg);
-                }
-            })
+            .callback_mut(callback)
             .res()
             .await
         {
             self.map
                 .lock()
                 .unwrap()
-                .insert(zenoh_key.clone(), subscriber);
+                .insert(hashmap_key.clone(), subscriber);
         } else {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
@@ -183,8 +189,7 @@ impl UTransport for ULink {
             ));
         }
 
-        // TODO: Need to assign special string
-        Ok(zenoh_key)
+        Ok(hashmap_key)
     }
 
     async fn unregister_listener(&self, topic: UUri, listener: &str) -> Result<(), UStatus> {
@@ -195,8 +200,15 @@ impl UTransport for ULink {
                 "Invalid topic",
             ));
         }
+        // TODO: Check whether we still need topic or not (Compare topic with listener?)
 
-        // TODO: Check whether we still need topic or not
+        if !self.map.lock().unwrap().contains_key(listener) {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "listener not exists",
+            ));
+        }
+
         self.map.lock().unwrap().remove(listener);
         Ok(())
     }
