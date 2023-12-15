@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
     transport::datamodel::UTransport,
@@ -11,10 +13,12 @@ use uprotocol_sdk::{
 };
 use zenoh::config::Config;
 use zenoh::prelude::r#async::*;
+use zenoh::subscriber::Subscriber;
 
 pub struct ZenohListener {}
 pub struct ULink {
-    session: Session,
+    session: Arc<Session>,
+    map: Arc<Mutex<HashMap<String, Subscriber<'static, ()>>>>,
 }
 
 impl ULink {
@@ -27,7 +31,10 @@ impl ULink {
                 "Unable to open Zenoh session",
             ));
         };
-        Ok(ULink { session })
+        Ok(ULink {
+            session: Arc::new(session),
+            map: Arc::new(Mutex::new(HashMap::new())),
+        })
     }
 
     fn to_zenoh_key(uri: &UUri) -> Result<String, UStatus> {
@@ -116,7 +123,7 @@ impl UTransport for ULink {
     }
 
     async fn register_listener(
-        &self,
+        &mut self,
         topic: UUri,
         _listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
     ) -> Result<String, UStatus> {
@@ -131,7 +138,7 @@ impl UTransport for ULink {
         // Get Zenoh key
         let zenoh_key = ULink::to_zenoh_key(&topic)?;
 
-        if self
+        if let Ok(subscriber) = self
             .session
             .declare_subscriber(&zenoh_key)
             .callback_mut(move |_sample| {
@@ -139,8 +146,12 @@ impl UTransport for ULink {
             })
             .res()
             .await
-            .is_err()
         {
+            self.map
+                .lock()
+                .unwrap()
+                .insert(zenoh_key.clone(), subscriber);
+        } else {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to register callback with Zenoh",
@@ -148,10 +159,10 @@ impl UTransport for ULink {
         }
 
         // TODO: Need to assign special string
-        Ok(String::from("MyListener"))
+        Ok(zenoh_key)
     }
 
-    async fn unregister_listener(&self, topic: UUri, _listener: &str) -> Result<(), UStatus> {
+    async fn unregister_listener(&mut self, topic: UUri, listener: &str) -> Result<(), UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
             return Err(UStatus::fail_with_code(
@@ -160,10 +171,8 @@ impl UTransport for ULink {
             ));
         }
 
-        // TODO: Not implemented
-        Err(UStatus::fail_with_code(
-            UCode::Unimplemented,
-            "Not implemented",
-        ))
+        // TODO: Check whether we still need topic or not
+        self.map.lock().unwrap().remove(listener);
+        Ok(())
     }
 }

@@ -15,7 +15,7 @@ fn callback(_msg: UMessage) {
 #[async_std::main]
 async fn main() {
     println!("uProtocol subscriber example");
-    let subscriber = ULink::new().await.unwrap();
+    let mut subscriber = ULink::new().await.unwrap();
 
     // create uuri
     let uuri = UUri {
