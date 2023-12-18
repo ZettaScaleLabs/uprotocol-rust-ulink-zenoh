@@ -17,22 +17,22 @@ use zenoh::sample::AttachmentBuilder;
 use zenoh::subscriber::Subscriber;
 
 pub struct ZenohListener {}
-pub struct ULink {
+pub struct ULinkZenoh {
     session: Arc<Session>,
     map: Arc<Mutex<HashMap<String, Subscriber<'static, ()>>>>,
 }
 
-impl ULink {
+impl ULinkZenoh {
     /// # Errors
     /// Will return `Err` if unable to create Zenoh session
-    pub async fn new() -> Result<ULink, UStatus> {
+    pub async fn new() -> Result<ULinkZenoh, UStatus> {
         let Ok(session) = zenoh::open(Config::default()).res().await else {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to open Zenoh session",
             ));
         };
-        Ok(ULink {
+        Ok(ULinkZenoh {
             session: Arc::new(session),
             map: Arc::new(Mutex::new(HashMap::new())),
         })
@@ -64,7 +64,7 @@ impl ULink {
 }
 
 #[async_trait]
-impl RpcClient for ULink {
+impl RpcClient for ULinkZenoh {
     async fn invoke_method(
         topic: UUri,
         payload: UPayload,
@@ -82,7 +82,7 @@ impl RpcClient for ULink {
 }
 
 #[async_trait]
-impl UTransport for ULink {
+impl UTransport for ULinkZenoh {
     async fn authenticate(&self, _entity: UEntity) -> Result<(), UStatus> {
         // TODO: Not implemented
         Err(UStatus::fail_with_code(
@@ -107,7 +107,7 @@ impl UTransport for ULink {
         // TODO: Validate UAttributes (maybe without self)
 
         // Get Zenoh key
-        let zenoh_key = ULink::to_zenoh_key(&topic)?;
+        let zenoh_key = ULinkZenoh::to_zenoh_key(&topic)?;
 
         // Serialize UPayload into protobuf
         let mut buf = vec![];
@@ -161,7 +161,7 @@ impl UTransport for ULink {
         }
 
         // Get Zenoh key
-        let zenoh_key = ULink::to_zenoh_key(&topic)?;
+        let zenoh_key = ULinkZenoh::to_zenoh_key(&topic)?;
         // Generate listener string for users to delete
         let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
         while self.map.lock().unwrap().contains_key(&hashmap_key) {
@@ -256,7 +256,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            ULink::to_zenoh_key(&uuri).unwrap(),
+            ULinkZenoh::to_zenoh_key(&uuri).unwrap(),
             String::from("zenoh_uprotocol/body.access/1/door.front_left\\3Door")
         );
     }

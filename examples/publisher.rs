@@ -5,12 +5,12 @@ use uprotocol_sdk::{
     transport::datamodel::UTransport,
     uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UResource, UUri},
 };
-use uprotocol_zenoh_rust::ULink;
+use uprotocol_zenoh_rust::ULinkZenoh;
 
 #[async_std::main]
 async fn main() {
     println!("uProtocol publisher example");
-    let publisher = ULink::new().await.unwrap();
+    let publisher = ULinkZenoh::new().await.unwrap();
 
     // create uuri
     let uuri = UUri {

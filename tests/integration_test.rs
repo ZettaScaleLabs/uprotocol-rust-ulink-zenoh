@@ -2,11 +2,11 @@ use uprotocol_sdk::{
     transport::datamodel::UTransport,
     uprotocol::{UCode, UEntity, UResource, UStatus, UUri},
 };
-use uprotocol_zenoh_rust::ULink;
+use uprotocol_zenoh_rust::ULinkZenoh;
 
 #[async_std::test]
 async fn test_register_test() {
-    let to_test = ULink::new().await.unwrap();
+    let to_test = ULinkZenoh::new().await.unwrap();
     // create uuri
     let uuri = UUri {
         entity: Some(UEntity {
