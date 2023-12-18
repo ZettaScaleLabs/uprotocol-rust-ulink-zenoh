@@ -9,6 +9,8 @@ Rust uLink implementation for the Zenoh transport
 cargo clippy
 # Build
 cargo build
+# Run test
+cargo test
 ```
 
 # Examples

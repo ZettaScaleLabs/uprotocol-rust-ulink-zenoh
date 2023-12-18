@@ -5,8 +5,7 @@ use std::sync::{Arc, Mutex};
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
     transport::datamodel::UTransport,
-    uprotocol::UCode,
-    uprotocol::{UAttributes, UEntity, UMessage, UPayload, UStatus, UUri},
+    uprotocol::{UAttributes, UCode, UEntity, UMessage, UPayload, UStatus, UUri},
     uri::{
         serializer::{LongUriSerializer, UriSerializer},
         validator::UriValidator,
@@ -50,7 +49,7 @@ impl ULink {
         };
         let mut zenoh_key = String::from("zenoh_uprotocol");
         if uri.authority.is_some() {
-            zenoh_key.push_str("/");
+            zenoh_key.push('/');
         }
         // TODO: Check whether these characters are all used in UUri.
         zenoh_key += &uri_string
@@ -111,7 +110,7 @@ impl UTransport for ULink {
 
         // Serialize UPayload to protobuf
         let mut buf = vec![];
-        let Ok(_) = payload.encode(&mut buf) else {
+        let Ok(()) = payload.encode(&mut buf) else {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
                 "Unable to encode UPayload",
@@ -205,11 +204,40 @@ impl UTransport for ULink {
         if !self.map.lock().unwrap().contains_key(listener) {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
-                "listener not exists",
+                "Listener not exists",
             ));
         }
 
         self.map.lock().unwrap().remove(listener);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uprotocol_sdk::uprotocol::{UEntity, UResource, UUri};
+
+    #[test]
+    fn test_to_zenoh_key() {
+        // create uuri for test
+        let uuri = UUri {
+            entity: Some(UEntity {
+                name: "body.access".to_string(),
+                version_major: Some(1),
+                ..Default::default()
+            }),
+            resource: Some(UResource {
+                name: "door".to_string(),
+                instance: Some("front_left".to_string()),
+                message: Some("Door".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            ULink::to_zenoh_key(&uuri).unwrap(),
+            String::from("zenoh_uprotocol/body.access/1/door.front_left\\3Door")
+        );
     }
 }
