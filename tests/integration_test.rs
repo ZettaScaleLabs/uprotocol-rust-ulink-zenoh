@@ -3,10 +3,11 @@ use uprotocol_sdk::{
     uprotocol::{UCode, UEntity, UResource, UStatus, UUri},
 };
 use uprotocol_zenoh_rust::ULinkZenoh;
+use zenoh::config::Config;
 
 #[async_std::test]
 async fn test_register_test() {
-    let to_test = ULinkZenoh::new().await.unwrap();
+    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
     // create uuri
     let uuri = UUri {
         entity: Some(UEntity {

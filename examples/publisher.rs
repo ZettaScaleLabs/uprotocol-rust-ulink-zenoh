@@ -6,11 +6,12 @@ use uprotocol_sdk::{
     uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UResource, UUri},
 };
 use uprotocol_zenoh_rust::ULinkZenoh;
+use zenoh::config::Config;
 
 #[async_std::main]
 async fn main() {
     println!("uProtocol publisher example");
-    let publisher = ULinkZenoh::new().await.unwrap();
+    let publisher = ULinkZenoh::new(Config::default()).await.unwrap();
 
     // create uuri
     let uuri = UUri {

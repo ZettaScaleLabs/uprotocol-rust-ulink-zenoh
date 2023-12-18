@@ -25,8 +25,8 @@ pub struct ULinkZenoh {
 impl ULinkZenoh {
     /// # Errors
     /// Will return `Err` if unable to create Zenoh session
-    pub async fn new() -> Result<ULinkZenoh, UStatus> {
-        let Ok(session) = zenoh::open(Config::default()).res().await else {
+    pub async fn new(config: Config) -> Result<ULinkZenoh, UStatus> {
+        let Ok(session) = zenoh::open(config).res().await else {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to open Zenoh session",

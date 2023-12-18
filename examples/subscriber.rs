@@ -5,6 +5,7 @@ use uprotocol_sdk::{
 };
 
 use uprotocol_zenoh_rust::ULinkZenoh;
+use zenoh::config::Config;
 
 fn callback(msg: UMessage) {
     let uri = msg.source.unwrap().to_string();
@@ -17,7 +18,7 @@ fn callback(msg: UMessage) {
 #[async_std::main]
 async fn main() {
     println!("uProtocol subscriber example");
-    let subscriber = ULinkZenoh::new().await.unwrap();
+    let subscriber = ULinkZenoh::new(Config::default()).await.unwrap();
 
     // create uuri
     let uuri = UUri {
