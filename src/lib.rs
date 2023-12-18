@@ -13,6 +13,7 @@ use uprotocol_sdk::{
 };
 use zenoh::config::Config;
 use zenoh::prelude::r#async::*;
+use zenoh::sample::AttachmentBuilder;
 use zenoh::subscriber::Subscriber;
 
 pub struct ZenohListener {}
@@ -94,7 +95,7 @@ impl UTransport for ULink {
         &self,
         topic: UUri,
         payload: UPayload,
-        _attributes: UAttributes,
+        attributes: UAttributes,
     ) -> Result<(), UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
@@ -108,7 +109,7 @@ impl UTransport for ULink {
         // Get Zenoh key
         let zenoh_key = ULink::to_zenoh_key(&topic)?;
 
-        // Serialize UPayload to protobuf
+        // Serialize UPayload into protobuf
         let mut buf = vec![];
         let Ok(()) = payload.encode(&mut buf) else {
             return Err(UStatus::fail_with_code(
@@ -117,16 +118,26 @@ impl UTransport for ULink {
             ));
         };
 
-        // Send data
-        if self
+        // Serialized UAttributes into protobuf
+        // TODO: Should we map priority into Zenoh priority?
+        let mut attr = vec![];
+        let Ok(()) = attributes.encode(&mut attr) else {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Unable to encode UAttributes",
+            ));
+        };
+
+        // Add attachment and payload
+        let mut attachment = AttachmentBuilder::new();
+        attachment.insert("uattributes", attr.as_slice());
+        let putbuilder = self
             .session
             .put(&zenoh_key, buf)
-            // TODO: Should be discussed (should be protobuf)
-            .encoding(Encoding::APP_CUSTOM)
-            .res()
-            .await
-            .is_err()
-        {
+            .with_attachment(attachment.build());
+
+        // Send data
+        if putbuilder.res().await.is_err() {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to send with Zenoh",
@@ -159,16 +170,25 @@ impl UTransport for ULink {
 
         // Setup callback
         let callback = move |sample: Sample| {
-            // TODO: Fill the Attributes
-            let v = sample.payload.contiguous();
-            if let Ok(payload) = Message::decode(&*v) {
-                let msg = UMessage {
-                    source: Some(topic.clone()),
-                    attributes: None,
-                    payload: Some(payload),
-                };
-                listener(msg);
-            }
+            let Some(attachment) = sample.attachment() else {
+                return; // Should not happen, so do nothing
+            };
+            let Some(attribute) = attachment.get(&"uattributes".as_bytes()) else {
+                return; // Should not happen, so do nothing
+            };
+            let Ok(u_attribute) = Message::decode(&*attribute) else {
+                return; // Should not happen, so do nothing
+            };
+            let payload = sample.payload.contiguous();
+            let Ok(u_payload) = Message::decode(&*payload) else {
+                return; // Should not happen, so do nothing
+            };
+            let msg = UMessage {
+                source: Some(topic.clone()),
+                attributes: Some(u_attribute),
+                payload: Some(u_payload),
+            };
+            listener(msg);
         };
         if let Ok(subscriber) = self
             .session
