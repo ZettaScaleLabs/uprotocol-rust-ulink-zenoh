@@ -38,22 +38,23 @@ impl ULinkZenoh {
         })
     }
 
-    fn to_zenoh_key(uri: &UUri) -> Result<String, UStatus> {
+    fn to_zenoh_key_string(uri: &UUri) -> Result<String, UStatus> {
         // uProtocol Uri format: https://github.com/eclipse-uprotocol/uprotocol-spec/blob/6f0bb13356c0a377013bdd3342283152647efbf9/basics/uri.adoc#11-rfc3986
         // up://<user@><device>.<domain><:port>/<ue_name>/<ue_version>/<resource|rpc.method><#message>
         //            UAuthority               /        UEntity       /           UResource
-        let Ok(uri_string) = LongUriSerializer::serialize(uri) else {
+        let Ok(mut uri_string) = LongUriSerializer::serialize(uri) else {
             return Err(UStatus::fail_with_code(
                 UCode::Internal,
                 "Unable to transform to Zenoh key",
             ));
         };
-        let mut zenoh_key = String::from("zenoh_uprotocol");
-        if uri.authority.is_some() {
-            zenoh_key.push('/');
+        if uri_string.starts_with('/') {
+            let _ = uri_string.remove(0);
         }
+
         // TODO: Check whether these characters are all used in UUri.
-        zenoh_key += &uri_string
+        // TODO: We should have the # and ? in the attachment instead of Zenoh key
+        let zenoh_key = uri_string
             .replace('*', "\\8")
             .replace('$', "\\4")
             .replace('?', "\\0")
@@ -107,9 +108,9 @@ impl UTransport for ULinkZenoh {
         // TODO: Validate UAttributes (maybe without self)
 
         // Get Zenoh key
-        let zenoh_key = ULinkZenoh::to_zenoh_key(&topic)?;
+        let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
 
-        // Serialize UPayload into protobuf
+        // Put UPayload into protobuf
         let Some(Data::Value(buf)) = payload.data else {
             // TODO: Assume we only have Value here, no reference for shared memory
             return Err(UStatus::fail_with_code(
@@ -165,7 +166,7 @@ impl UTransport for ULinkZenoh {
         }
 
         // Get Zenoh key
-        let zenoh_key = ULinkZenoh::to_zenoh_key(&topic)?;
+        let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
         // Generate listener string for users to delete
         let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
         while self.map.lock().unwrap().contains_key(&hashmap_key) {
@@ -283,8 +284,8 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            ULinkZenoh::to_zenoh_key(&uuri).unwrap(),
-            String::from("zenoh_uprotocol/body.access/1/door.front_left\\3Door")
+            ULinkZenoh::to_zenoh_key_string(&uuri).unwrap(),
+            String::from("body.access/1/door.front_left\\3Door")
         );
     }
 }
