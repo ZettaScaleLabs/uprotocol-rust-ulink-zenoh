@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
     transport::datamodel::UTransport,
-    uprotocol::{UAttributes, UCode, UEntity, UMessage, UPayload, UStatus, UUri},
+    uprotocol::{Data, UAttributes, UCode, UEntity, UMessage, UPayload, UStatus, UUri},
     uri::{
         serializer::{LongUriSerializer, UriSerializer},
         validator::UriValidator,
@@ -110,11 +110,11 @@ impl UTransport for ULinkZenoh {
         let zenoh_key = ULinkZenoh::to_zenoh_key(&topic)?;
 
         // Serialize UPayload into protobuf
-        let mut buf = vec![];
-        let Ok(()) = payload.encode(&mut buf) else {
+        let Some(Data::Value(buf)) = payload.data else {
+            // TODO: Assume we only have Value here, no reference for shared memory
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
-                "Unable to encode UPayload",
+                "Invalid data",
             ));
         };
 
@@ -134,6 +134,10 @@ impl UTransport for ULinkZenoh {
         let putbuilder = self
             .session
             .put(&zenoh_key, buf)
+            .encoding(Encoding::WithSuffix(
+                KnownEncoding::AppCustom,
+                payload.format.to_string().into(),
+            ))
             .with_attachment(attachment.build());
 
         // Send data
@@ -170,6 +174,7 @@ impl UTransport for ULinkZenoh {
 
         // Setup callback
         let callback = move |sample: Sample| {
+            // Create UAttribute
             let Some(attachment) = sample.attachment() else {
                 return; // Should not happen, so do nothing
             };
@@ -179,10 +184,16 @@ impl UTransport for ULinkZenoh {
             let Ok(u_attribute) = Message::decode(&*attribute) else {
                 return; // Should not happen, so do nothing
             };
-            let payload = sample.payload.contiguous();
-            let Ok(u_payload) = Message::decode(&*payload) else {
+            // Create UPayload
+            let Ok(encoding) = sample.encoding.suffix().parse::<i32>() else {
                 return; // Should not happen, so do nothing
             };
+            let u_payload = UPayload {
+                length: Some(0),
+                format: encoding,
+                data: Some(Data::Value(sample.payload.contiguous().to_vec())),
+            };
+            // Create UMessage
             let msg = UMessage {
                 source: Some(topic.clone()),
                 attributes: Some(u_attribute),
