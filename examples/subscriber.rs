@@ -1,17 +1,22 @@
 use std::time;
 use uprotocol_sdk::{
     transport::datamodel::UTransport,
-    uprotocol::{Data, UEntity, UMessage, UResource, UUri},
+    uprotocol::{Data, UEntity, UMessage, UResource, UStatus, UUri},
 };
 
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;
 
-fn callback(msg: UMessage) {
-    let uri = msg.source.unwrap().to_string();
-    if let Data::Value(v) = msg.payload.unwrap().data.unwrap() {
-        let value = v.into_iter().map(|c| c as char).collect::<String>();
-        println!("Receiving {} from {}", value, uri);
+fn callback(result: Result<UMessage, UStatus>) {
+    match result {
+        Ok(msg) => {
+            let uri = msg.source.unwrap().to_string();
+            if let Data::Value(v) = msg.payload.unwrap().data.unwrap() {
+                let value = v.into_iter().map(|c| c as char).collect::<String>();
+                println!("Receiving {} from {}", value, uri);
+            }
+        }
+        Err(ustatus) => println!("Internal Error: {:?}", ustatus),
     }
 }
 

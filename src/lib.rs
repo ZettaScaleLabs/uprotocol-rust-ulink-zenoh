@@ -154,7 +154,7 @@ impl UTransport for ULinkZenoh {
     async fn register_listener(
         &self,
         topic: UUri,
-        listener: Box<dyn Fn(UMessage) + Send + Sync + 'static>,
+        listener: Box<dyn Fn(Result<UMessage, UStatus>) + Send + Sync + 'static>,
     ) -> Result<String, UStatus> {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
@@ -176,17 +176,33 @@ impl UTransport for ULinkZenoh {
         let callback = move |sample: Sample| {
             // Create UAttribute
             let Some(attachment) = sample.attachment() else {
-                return; // Should not happen, so do nothing
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to get attachment",
+                )));
+                return;
             };
             let Some(attribute) = attachment.get(&"uattributes".as_bytes()) else {
-                return; // Should not happen, so do nothing
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to get uattributes",
+                )));
+                return;
             };
             let Ok(u_attribute) = Message::decode(&*attribute) else {
-                return; // Should not happen, so do nothing
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to decode attribute",
+                )));
+                return;
             };
             // Create UPayload
             let Ok(encoding) = sample.encoding.suffix().parse::<i32>() else {
-                return; // Should not happen, so do nothing
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to get payload encoding",
+                )));
+                return;
             };
             let u_payload = UPayload {
                 length: Some(0),
@@ -199,7 +215,7 @@ impl UTransport for ULinkZenoh {
                 attributes: Some(u_attribute),
                 payload: Some(u_payload),
             };
-            listener(msg);
+            listener(Ok(msg));
         };
         if let Ok(subscriber) = self
             .session
