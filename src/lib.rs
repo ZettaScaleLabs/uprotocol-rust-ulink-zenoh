@@ -267,7 +267,7 @@ mod tests {
     use uprotocol_sdk::uprotocol::{UEntity, UResource, UUri};
 
     #[test]
-    fn test_to_zenoh_key() {
+    fn test_to_zenoh_key_string() {
         // create uuri for test
         let uuri = UUri {
             entity: Some(UEntity {
