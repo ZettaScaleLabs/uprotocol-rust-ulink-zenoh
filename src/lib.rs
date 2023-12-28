@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use prost::Message;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use uprotocol_sdk::transport::validator::Validators;
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
     transport::datamodel::UTransport,
@@ -82,13 +83,18 @@ impl RpcClient for ULinkZenoh {
     async fn invoke_method(
         topic: UUri,
         payload: UPayload,
-        _attributes: UAttributes,
+        attributes: UAttributes,
     ) -> RpcClientResult {
         // Do the validation
         if UriValidator::validate(&topic).is_err() {
             return Err(RpcMapperError::UnexpectedError(String::from("Wrong UUri")));
         }
-        // TODO: Validate UAttributes (maybe without self)
+        let validator = Validators::Request.validator();
+        if validator.validate(&attributes).is_err() {
+            return Err(RpcMapperError::UnexpectedError(String::from(
+                "Wrong UAttributes",
+            )));
+        }
 
         // TODO: Not implemented
         Ok(payload)
@@ -118,7 +124,7 @@ impl UTransport for ULinkZenoh {
                 "Invalid topic",
             ));
         }
-        // TODO: Validate UAttributes (maybe without self)
+        // TODO: Validate UAttributes (We don't know whether attributes are Publish/Request/Response, so we can't check)
 
         // Get Zenoh key
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
