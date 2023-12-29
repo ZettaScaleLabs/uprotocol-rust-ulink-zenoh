@@ -12,9 +12,9 @@ pedantic = "deny"
 
 [dependencies]
 # Official one
-#uprotocol-sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "uprotocol_1.5" }
+#uprotocol-sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "main" }
 # ZettaScale one
-uprotocol-sdk = { git = "https://github.com/ZettaScaleLabs/uprotocol-rust.git", branch = "uprotocol_1.5" }
+uprotocol-sdk = { git = "https://github.com/ZettaScaleLabs/uprotocol-rust.git", branch = "main" }
 # Debug
 #uprotocol-sdk = { path = "../uprotocol-rust" }
 prost = "0.12"
