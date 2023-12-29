@@ -3,6 +3,25 @@ name = "uprotocol_zenoh_rust"
 version = "0.1.0"
 edition = "2021"
 
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+#cargo = "deny"
+#restriction = "deny"
+#nursery = "deny"
+
 [dependencies]
-#uprotocol_sdk = { git = "https://github.com/SoftwareDefinedVehicle/uprotocol-sdk-rust_fork.git", branch = "main" }
-uprotocol_sdk = { path = "../uprotocol-sdk-rust" }
+# Official one
+#uprotocol-sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "main" }
+# ZettaScale one
+uprotocol-sdk = { git = "https://github.com/ZettaScaleLabs/uprotocol-rust.git", branch = "main" }
+# Debug
+#uprotocol-sdk = { path = "../uprotocol-rust" }
+prost = "0.12"
+prost-types = "0.12"
+cloudevents-sdk = { version = "0.7.0" }
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = 'master', features = ["unstable"]}
+async-trait = "0.1"
+async-std = "1.12.0"
+anyhow = "1.0.75"
+rand = "0.8.5"
