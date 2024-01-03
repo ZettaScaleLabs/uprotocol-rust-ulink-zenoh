@@ -14,7 +14,7 @@ pedantic = "deny"
 # Official one
 #uprotocol-sdk = { git = "https://github.com/eclipse-uprotocol/uprotocol-rust.git", branch = "main" }
 # ZettaScale one
-uprotocol-sdk = { git = "https://github.com/ZettaScaleLabs/uprotocol-rust.git", branch = "main" }
+uprotocol-sdk = { git = "https://github.com/ZettaScaleLabs/uprotocol-rust.git", branch = "support_rpcserver" }
 # Debug
 #uprotocol-sdk = { path = "../uprotocol-rust" }
 prost = "0.12"
