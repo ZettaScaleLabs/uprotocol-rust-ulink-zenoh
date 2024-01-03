@@ -15,11 +15,14 @@ use async_trait::async_trait;
 use prost::Message;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use uprotocol_sdk::rpc::RpcServer;
 use uprotocol_sdk::transport::validator::Validators;
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError},
     transport::datamodel::UTransport,
-    uprotocol::{Data, UAttributes, UCode, UEntity, UMessage, UPayload, UStatus, UUri},
+    uprotocol::{
+        Data, UAttributes, UCode, UEntity, UMessage, UPayload, UPayloadFormat, UStatus, UUri,
+    },
     uri::{
         serializer::{LongUriSerializer, UriSerializer},
         validator::UriValidator,
@@ -27,13 +30,15 @@ use uprotocol_sdk::{
 };
 use zenoh::config::Config;
 use zenoh::prelude::r#async::*;
+use zenoh::queryable::{Query, Queryable};
 use zenoh::sample::AttachmentBuilder;
 use zenoh::subscriber::Subscriber;
 
 pub struct ZenohListener {}
 pub struct ULinkZenoh {
     session: Arc<Session>,
-    map: Arc<Mutex<HashMap<String, Subscriber<'static, ()>>>>,
+    subscriber_map: Arc<Mutex<HashMap<String, Subscriber<'static, ()>>>>,
+    queryable_map: Arc<Mutex<HashMap<String, Queryable<'static, ()>>>>,
 }
 
 impl ULinkZenoh {
@@ -48,7 +53,8 @@ impl ULinkZenoh {
         };
         Ok(ULinkZenoh {
             session: Arc::new(session),
-            map: Arc::new(Mutex::new(HashMap::new())),
+            subscriber_map: Arc::new(Mutex::new(HashMap::new())),
+            queryable_map: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -98,6 +104,130 @@ impl RpcClient for ULinkZenoh {
 
         // TODO: Not implemented
         Ok(payload)
+    }
+}
+
+#[async_trait]
+impl RpcServer for ULinkZenoh {
+    async fn register_rpc_listener(
+        &self,
+        method: UUri,
+        listener: Box<dyn Fn(Result<UMessage, UStatus>) + Send + Sync + 'static>,
+    ) -> Result<String, UStatus> {
+        // Do the validation
+        if UriValidator::validate(&method).is_err() {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Invalid topic",
+            ));
+        }
+
+        // Get Zenoh key
+        let zenoh_key = ULinkZenoh::to_zenoh_key_string(&method)?;
+        // Generate listener string for users to delete
+        let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
+        while self
+            .queryable_map
+            .lock()
+            .unwrap()
+            .contains_key(&hashmap_key)
+        {
+            hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
+        }
+
+        // Setup callback
+        let callback = move |query: Query| {
+            // Create UAttribute
+            let Some(attachment) = query.attachment() else {
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to get attachment",
+                )));
+                return;
+            };
+            let Some(attribute) = attachment.get(&"uattributes".as_bytes()) else {
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to get uattributes",
+                )));
+                return;
+            };
+            let Ok(u_attribute) = Message::decode(&*attribute) else {
+                listener(Err(UStatus::fail_with_code(
+                    UCode::Internal,
+                    "Unable to decode attribute",
+                )));
+                return;
+            };
+            // Create UPayload
+            let u_payload = match query.value() {
+                Some(value) => {
+                    let Ok(encoding) = value.encoding.suffix().parse::<i32>() else {
+                        listener(Err(UStatus::fail_with_code(
+                            UCode::Internal,
+                            "Unable to get payload encoding",
+                        )));
+                        return;
+                    };
+                    UPayload {
+                        length: Some(0),
+                        format: encoding,
+                        data: Some(Data::Value(value.payload.contiguous().to_vec())),
+                    }
+                }
+                None => UPayload {
+                    length: Some(0),
+                    format: UPayloadFormat::UpayloadFormatUnspecified as i32,
+                    data: None,
+                },
+            };
+            // Create UMessage
+            let msg = UMessage {
+                source: Some(method.clone()),
+                attributes: Some(u_attribute),
+                payload: Some(u_payload),
+            };
+            listener(Ok(msg));
+        };
+        if let Ok(queryable) = self
+            .session
+            .declare_queryable(&zenoh_key)
+            .callback_mut(callback)
+            .res()
+            .await
+        {
+            self.queryable_map
+                .lock()
+                .unwrap()
+                .insert(hashmap_key.clone(), queryable);
+        } else {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to register callback with Zenoh",
+            ));
+        }
+
+        Ok(hashmap_key)
+    }
+    async fn unregister_rpc_listener(&self, method: UUri, listener: &str) -> Result<(), UStatus> {
+        // Do the validation
+        if UriValidator::validate(&method).is_err() {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Invalid topic",
+            ));
+        }
+        // TODO: Check whether we still need method or not (Compare method with listener?)
+
+        if !self.queryable_map.lock().unwrap().contains_key(listener) {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Listener not exists",
+            ));
+        }
+
+        self.queryable_map.lock().unwrap().remove(listener);
+        Ok(())
     }
 }
 
@@ -188,7 +318,12 @@ impl UTransport for ULinkZenoh {
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
         // Generate listener string for users to delete
         let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
-        while self.map.lock().unwrap().contains_key(&hashmap_key) {
+        while self
+            .subscriber_map
+            .lock()
+            .unwrap()
+            .contains_key(&hashmap_key)
+        {
             hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
         }
 
@@ -244,7 +379,7 @@ impl UTransport for ULinkZenoh {
             .res()
             .await
         {
-            self.map
+            self.subscriber_map
                 .lock()
                 .unwrap()
                 .insert(hashmap_key.clone(), subscriber);
@@ -268,14 +403,14 @@ impl UTransport for ULinkZenoh {
         }
         // TODO: Check whether we still need topic or not (Compare topic with listener?)
 
-        if !self.map.lock().unwrap().contains_key(listener) {
+        if !self.subscriber_map.lock().unwrap().contains_key(listener) {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
                 "Listener not exists",
             ));
         }
 
-        self.map.lock().unwrap().remove(listener);
+        self.subscriber_map.lock().unwrap().remove(listener);
         Ok(())
     }
 }
