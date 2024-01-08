@@ -20,6 +20,10 @@ cargo test
 cargo run --example publisher
 # Subscriber
 cargo run --example subscriber
+# RPC Server
+cargo run --example rpc_server
+# RPC Client
+cargo run --example rpc_client
 ```
 
 # Note
