@@ -16,7 +16,6 @@ use uprotocol_sdk::{
     transport::datamodel::UTransport,
     uprotocol::{Data, UEntity, UMessage, UResource, UStatus, UUri},
 };
-
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;
 

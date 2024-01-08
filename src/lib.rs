@@ -28,11 +28,13 @@ use uprotocol_sdk::{
         validator::UriValidator,
     },
 };
-use zenoh::config::Config;
-use zenoh::prelude::{r#async::*, Sample};
-use zenoh::queryable::{Query, Queryable};
-use zenoh::sample::AttachmentBuilder;
-use zenoh::subscriber::Subscriber;
+use zenoh::{
+    config::Config,
+    prelude::{r#async::*, Sample},
+    queryable::{Query, Queryable},
+    sample::AttachmentBuilder,
+    subscriber::Subscriber,
+};
 
 pub struct ZenohListener {}
 pub struct ULinkZenoh {
@@ -318,7 +320,7 @@ impl RpcServer for ULinkZenoh {
         if !self.queryable_map.lock().unwrap().contains_key(listener) {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
-                "Listener not exists",
+                "Listener doesn't exist",
             ));
         }
 
@@ -562,7 +564,7 @@ impl UTransport for ULinkZenoh {
         if !self.subscriber_map.lock().unwrap().contains_key(listener) {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
-                "Listener not exists",
+                "Listener doesn't exist",
             ));
         }
 

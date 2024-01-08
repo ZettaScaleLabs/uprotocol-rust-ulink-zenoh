@@ -11,11 +11,11 @@
 // Contributors:
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
-use uprotocol_sdk::uri::builder::resourcebuilder::UResourceBuilder;
 use uprotocol_sdk::{
     rpc::RpcClient,
     transport::builder::UAttributesBuilder,
     uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UUri, Uuid},
+    uri::builder::resourcebuilder::UResourceBuilder,
 };
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;

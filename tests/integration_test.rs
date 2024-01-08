@@ -61,7 +61,7 @@ async fn test_utransport_register_and_unregister() {
         result,
         Err(UStatus::fail_with_code(
             UCode::InvalidArgument,
-            "Listener not exists"
+            "Listener doesn't exist"
         ))
     )
 }
@@ -102,7 +102,7 @@ async fn test_rpcserver_register_and_unregister() {
         result,
         Err(UStatus::fail_with_code(
             UCode::InvalidArgument,
-            "Listener not exists"
+            "Listener doesn't exist"
         ))
     )
 }
