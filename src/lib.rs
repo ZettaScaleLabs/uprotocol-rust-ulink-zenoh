@@ -91,6 +91,125 @@ impl ULinkZenoh {
     fn uuid_to_string(uuid: &Uuid) -> String {
         format!("{}:{}", uuid.msb, uuid.lsb)
     }
+
+    async fn send_publish(
+        &self,
+        zenoh_key: &str,
+        payload: UPayload,
+        attributes: UAttributes,
+    ) -> Result<(), UStatus> {
+        // Get the data from UPayload
+        let Some(Data::Value(buf)) = payload.data else {
+            // TODO: Assume we only have Value here, no reference for shared memory
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Invalid data",
+            ));
+        };
+
+        // Serialized UAttributes into protobuf
+        // TODO: Should we map priority into Zenoh priority?
+        let mut attr = vec![];
+        let Ok(()) = attributes.encode(&mut attr) else {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Unable to encode UAttributes",
+            ));
+        };
+
+        // Add attachment and payload
+        let mut attachment = AttachmentBuilder::new();
+        attachment.insert("uattributes", attr.as_slice());
+        let putbuilder = self
+            .session
+            .put(zenoh_key, buf)
+            .encoding(Encoding::WithSuffix(
+                KnownEncoding::AppCustom,
+                payload.format.to_string().into(),
+            ))
+            .with_attachment(attachment.build());
+
+        // Send data
+        if putbuilder.res().await.is_err() {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to send with Zenoh",
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn send_response(
+        &self,
+        zenoh_key: &str,
+        payload: UPayload,
+        attributes: UAttributes,
+    ) -> Result<(), UStatus> {
+        // Get the data from UPayload
+        let Some(Data::Value(buf)) = payload.data else {
+            // TODO: Assume we only have Value here, no reference for shared memory
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Invalid data",
+            ));
+        };
+
+        // Serialized UAttributes into protobuf
+        // TODO: Should we map priority into Zenoh priority?
+        let mut attr = vec![];
+        let Ok(()) = attributes.encode(&mut attr) else {
+            return Err(UStatus::fail_with_code(
+                UCode::InvalidArgument,
+                "Unable to encode UAttributes",
+            ));
+        };
+        // Get reqid
+        let reqid = ULinkZenoh::uuid_to_string(&attributes.reqid.ok_or(
+            UStatus::fail_with_code(UCode::InvalidArgument, "reqid doesn't exist"),
+        )?);
+
+        // Add attachment and payload
+        let mut attachment = AttachmentBuilder::new();
+        attachment.insert("uattributes", attr.as_slice());
+        // Send back query
+        let value = Value::new(buf.into()).encoding(Encoding::WithSuffix(
+            KnownEncoding::AppCustom,
+            payload.format.to_string().into(),
+        ));
+        let reply = Ok(Sample::new(
+            KeyExpr::new(zenoh_key.to_string()).unwrap(),
+            value,
+        ));
+        let query = self
+            .query_map
+            .lock()
+            .unwrap()
+            .get(&reqid)
+            .ok_or(UStatus::fail_with_code(
+                UCode::Internal,
+                "query doesn't exist",
+            ))?
+            .clone();
+
+        // Send data
+        // TODO: Unable to use unwrap in with_attachment (Attachment doesn't have Debug trait)
+        if query
+            .reply(reply)
+            .with_attachment(attachment.build())
+            .map_err(|_| UStatus::fail_with_code(UCode::Internal, "Unable to add attachment"))?
+            .res()
+            .await
+            .is_err()
+        {
+            return Err(UStatus::fail_with_code(
+                UCode::Internal,
+                "Unable to reply with Zenoh",
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -358,99 +477,12 @@ impl UTransport for ULinkZenoh {
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
 
         // Check the type of UAttributes (Publish / Request / Response)
-        // TODO: Create function for different types
         match UMessageType::try_from(attributes.r#type) {
             Ok(UMessageType::UmessageTypePublish) => {
-                // Get the data from UPayload
-                let Some(Data::Value(buf)) = payload.data else {
-                    // TODO: Assume we only have Value here, no reference for shared memory
-                    return Err(UStatus::fail_with_code(
-                        UCode::InvalidArgument,
-                        "Invalid data",
-                    ));
-                };
-
-                // Serialized UAttributes into protobuf
-                // TODO: Should we map priority into Zenoh priority?
-                let mut attr = vec![];
-                let Ok(()) = attributes.encode(&mut attr) else {
-                    return Err(UStatus::fail_with_code(
-                        UCode::InvalidArgument,
-                        "Unable to encode UAttributes",
-                    ));
-                };
-
-                // Add attachment and payload
-                let mut attachment = AttachmentBuilder::new();
-                attachment.insert("uattributes", attr.as_slice());
-                let putbuilder = self
-                    .session
-                    .put(&zenoh_key, buf)
-                    .encoding(Encoding::WithSuffix(
-                        KnownEncoding::AppCustom,
-                        payload.format.to_string().into(),
-                    ))
-                    .with_attachment(attachment.build());
-
-                // Send data
-                if putbuilder.res().await.is_err() {
-                    return Err(UStatus::fail_with_code(
-                        UCode::Internal,
-                        "Unable to send with Zenoh",
-                    ));
-                }
-
-                Ok(())
+                self.send_publish(&zenoh_key, payload, attributes).await
             }
             Ok(UMessageType::UmessageTypeResponse) => {
-                // TODO: Get the query from map with UUID string in UAttributes
-                // TODO: Response
-                // Get the data from UPayload
-                let Some(Data::Value(buf)) = payload.data else {
-                    // TODO: Assume we only have Value here, no reference for shared memory
-                    return Err(UStatus::fail_with_code(
-                        UCode::InvalidArgument,
-                        "Invalid data",
-                    ));
-                };
-
-                // Serialized UAttributes into protobuf
-                // TODO: Should we map priority into Zenoh priority?
-                let mut attr = vec![];
-                let Ok(()) = attributes.encode(&mut attr) else {
-                    return Err(UStatus::fail_with_code(
-                        UCode::InvalidArgument,
-                        "Unable to encode UAttributes",
-                    ));
-                };
-                // TODO: Do not use unwrap()
-                let reqid = ULinkZenoh::uuid_to_string(&attributes.reqid.unwrap());
-
-                // Add attachment and payload
-                let mut attachment = AttachmentBuilder::new();
-                attachment.insert("uattributes", attr.as_slice());
-                // Send back query
-                let value = Value::new(buf.into()).encoding(Encoding::WithSuffix(
-                    KnownEncoding::AppCustom,
-                    payload.format.to_string().into(),
-                ));
-                let reply = Ok(Sample::new(
-                    KeyExpr::new(ULinkZenoh::to_zenoh_key_string(&topic).unwrap()).unwrap(),
-                    value,
-                ));
-                // TODO: Add attachment
-                // TODO: Do not use unwrap
-                let query = self.query_map.lock().unwrap().get(&reqid).unwrap().clone();
-
-                // Send data
-                if query.reply(reply).res().await.is_err() {
-                    return Err(UStatus::fail_with_code(
-                        UCode::Internal,
-                        "Unable to reply with Zenoh",
-                    ));
-                }
-
-                Ok(())
+                self.send_response(&zenoh_key, payload, attributes).await
             }
             _ => Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
