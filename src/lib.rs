@@ -178,7 +178,9 @@ impl ULinkZenoh {
             payload.format.to_string().into(),
         ));
         let reply = Ok(Sample::new(
-            KeyExpr::new(zenoh_key.to_string()).unwrap(),
+            KeyExpr::new(zenoh_key.to_string()).map_err(|_| {
+                UStatus::fail_with_code(UCode::Internal, "Unable to create Zenoh key")
+            })?,
             value,
         ));
         let query = self
