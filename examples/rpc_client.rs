@@ -44,8 +44,8 @@ async fn main() {
     // TODO: It's a little strange to create UUID by users
     let attributes = UAttributesBuilder::request(UPriority::UpriorityCs4, uuri.clone(), 100)
         .with_reqid(Uuid {
-            msb: rand::random::<u64>(),
-            lsb: rand::random::<u64>(),
+            msb: 0x0000000000018000u64,
+            lsb: 0x8000000000000000u64,
         })
         .build();
 
