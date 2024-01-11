@@ -49,6 +49,7 @@ async fn test_utransport_register_and_unregister() {
         .register_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
+    assert_eq!(listener_string, "body.access/1/door.front_left\\3Door_0");
     // Should succeed
     let result = to_test
         .unregister_listener(uuri.clone(), &listener_string)
@@ -74,22 +75,21 @@ async fn test_rpcserver_register_and_unregister() {
     // create uuri
     let uuri = UUri {
         entity: Some(UEntity {
-            name: "body.access".to_string(),
+            name: "test_rpc.app".to_string(),
             version_major: Some(1),
             ..Default::default()
         }),
-        resource: Some(UResource {
-            name: "door".to_string(),
-            instance: Some("front_left".to_string()),
-            message: Some("Door".to_string()),
-            ..Default::default()
-        }),
+        resource: Some(UResourceBuilder::for_rpc_request(
+            Some("SimpleTest".to_string()),
+            None,
+        )),
         ..Default::default()
     };
     let listener_string = to_test
         .register_rpc_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
+    assert_eq!(listener_string, "test_rpc.app/1/rpc.SimpleTest_0");
     // Should succeed
     let result = to_test
         .unregister_rpc_listener(uuri.clone(), &listener_string)

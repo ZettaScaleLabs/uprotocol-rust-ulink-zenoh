@@ -14,7 +14,10 @@
 use async_trait::async_trait;
 use prost::Message;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 use std::time::Duration;
 use uprotocol_sdk::{
     rpc::{RpcClient, RpcClientResult, RpcMapperError, RpcServer},
@@ -42,6 +45,7 @@ pub struct ULinkZenoh {
     subscriber_map: Arc<Mutex<HashMap<String, Subscriber<'static, ()>>>>,
     queryable_map: Arc<Mutex<HashMap<String, Queryable<'static, ()>>>>,
     query_map: Arc<Mutex<HashMap<String, Query>>>,
+    callback_counter: AtomicU64,
 }
 
 impl ULinkZenoh {
@@ -59,6 +63,7 @@ impl ULinkZenoh {
             subscriber_map: Arc::new(Mutex::new(HashMap::new())),
             queryable_map: Arc::new(Mutex::new(HashMap::new())),
             query_map: Arc::new(Mutex::new(HashMap::new())),
+            callback_counter: AtomicU64::new(0),
         })
     }
 
@@ -320,15 +325,11 @@ impl RpcServer for ULinkZenoh {
         // Get Zenoh key
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&method)?;
         // Generate listener string for users to delete
-        let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
-        while self
-            .queryable_map
-            .lock()
-            .unwrap()
-            .contains_key(&hashmap_key)
-        {
-            hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
-        }
+        let hashmap_key = format!(
+            "{}_{:X}",
+            zenoh_key,
+            self.callback_counter.fetch_add(1, Ordering::SeqCst)
+        );
 
         let query_map = self.query_map.clone();
         // Setup callback
@@ -499,15 +500,11 @@ impl UTransport for ULinkZenoh {
         // Get Zenoh key
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
         // Generate listener string for users to delete
-        let mut hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
-        while self
-            .subscriber_map
-            .lock()
-            .unwrap()
-            .contains_key(&hashmap_key)
-        {
-            hashmap_key = format!("{}_{:X}", zenoh_key, rand::random::<u64>());
-        }
+        let hashmap_key = format!(
+            "{}_{:X}",
+            zenoh_key,
+            self.callback_counter.fetch_add(1, Ordering::SeqCst)
+        );
 
         // Setup callback
         let callback = move |sample: Sample| {
