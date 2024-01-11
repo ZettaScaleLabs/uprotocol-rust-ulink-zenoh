@@ -11,7 +11,7 @@
 // Contributors:
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
-use async_std::task::block_on;
+use async_std::task::{self, block_on};
 use chrono::Utc;
 use std::sync::{Arc, Mutex};
 use std::time;
@@ -94,6 +94,6 @@ async fn main() {
         .unwrap();
 
     loop {
-        std::thread::sleep(time::Duration::from_millis(1000));
+        task::sleep(time::Duration::from_millis(1000)).await;
     }
 }

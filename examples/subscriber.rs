@@ -11,6 +11,7 @@
 // Contributors:
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
+use async_std::task;
 use std::time;
 use uprotocol_sdk::{
     transport::datamodel::UTransport,
@@ -60,6 +61,6 @@ async fn main() {
         .unwrap();
 
     loop {
-        std::thread::sleep(time::Duration::from_millis(1000));
+        task::sleep(time::Duration::from_millis(1000)).await;
     }
 }
