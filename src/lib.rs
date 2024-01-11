@@ -427,14 +427,19 @@ impl RpcServer for ULinkZenoh {
             .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
         // TODO: Check whether we still need method or not (Compare method with listener?)
 
-        if !self.queryable_map.lock().unwrap().contains_key(listener) {
+        if self
+            .queryable_map
+            .lock()
+            .unwrap()
+            .remove(listener)
+            .is_none()
+        {
             return Err(UStatus::fail_with_code(
                 UCode::InvalidArgument,
                 "Listener doesn't exist",
             ));
         }
 
-        self.queryable_map.lock().unwrap().remove(listener);
         Ok(())
     }
 }
