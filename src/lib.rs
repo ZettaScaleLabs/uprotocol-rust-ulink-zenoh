@@ -130,12 +130,10 @@ impl ULinkZenoh {
             .with_attachment(attachment.build());
 
         // Send data
-        if putbuilder.res().await.is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::Internal,
-                "Unable to send with Zenoh",
-            ));
-        }
+        putbuilder
+            .res()
+            .await
+            .map_err(|_| UStatus::fail_with_code(UCode::Internal, "Unable to send with Zenoh"))?;
 
         Ok(())
     }
@@ -196,19 +194,13 @@ impl ULinkZenoh {
 
         // Send data
         // TODO: Unable to use unwrap in with_attachment (Attachment doesn't have Debug trait)
-        if query
+        query
             .reply(reply)
             .with_attachment(attachment.build())
             .map_err(|_| UStatus::fail_with_code(UCode::Internal, "Unable to add attachment"))?
             .res()
             .await
-            .is_err()
-        {
-            return Err(UStatus::fail_with_code(
-                UCode::Internal,
-                "Unable to reply with Zenoh",
-            ));
-        }
+            .map_err(|_| UStatus::fail_with_code(UCode::Internal, "Unable to reply with Zenoh"))?;
 
         Ok(())
     }
@@ -225,9 +217,9 @@ impl RpcClient for ULinkZenoh {
         // Validate UUri
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&topic).is_err() {
-            return Err(RpcMapperError::UnexpectedError(String::from("Wrong UUri")));
-        }
+        UriValidator::validate(&topic)
+            .map_err(|_| RpcMapperError::UnexpectedError(String::from("Wrong UUri")))?;
+
         // Validate UAttributes
         {
             // TODO: Check why the validator doesn't have Send
@@ -322,12 +314,8 @@ impl RpcServer for ULinkZenoh {
         // Do the validation
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&method).is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::InvalidArgument,
-                "Invalid topic",
-            ));
-        }
+        UriValidator::validate(&method)
+            .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
 
         // Get Zenoh key
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&method)?;
@@ -435,12 +423,8 @@ impl RpcServer for ULinkZenoh {
         // Do the validation
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&method).is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::InvalidArgument,
-                "Invalid topic",
-            ));
-        }
+        UriValidator::validate(&method)
+            .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
         // TODO: Check whether we still need method or not (Compare method with listener?)
 
         if !self.queryable_map.lock().unwrap().contains_key(listener) {
@@ -474,12 +458,8 @@ impl UTransport for ULinkZenoh {
         // Do the validation
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&topic).is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::InvalidArgument,
-                "Invalid topic",
-            ));
-        }
+        UriValidator::validate(&topic)
+            .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
         // TODO: Validate UAttributes (We don't know whether attributes are Publish/Request/Response, so we can't check)
 
         // Get Zenoh key
@@ -508,12 +488,8 @@ impl UTransport for ULinkZenoh {
         // Do the validation
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&topic).is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::InvalidArgument,
-                "Invalid topic",
-            ));
-        }
+        UriValidator::validate(&topic)
+            .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
 
         // Get Zenoh key
         let zenoh_key = ULinkZenoh::to_zenoh_key_string(&topic)?;
@@ -598,12 +574,8 @@ impl UTransport for ULinkZenoh {
         // Do the validation
         // TODO: Whether we should check URI is resolved or not
         //       https://github.com/eclipse-uprotocol/uprotocol-spec/issues/42#issuecomment-1882273981
-        if UriValidator::validate(&topic).is_err() {
-            return Err(UStatus::fail_with_code(
-                UCode::InvalidArgument,
-                "Invalid topic",
-            ));
-        }
+        UriValidator::validate(&topic)
+            .map_err(|_| UStatus::fail_with_code(UCode::InvalidArgument, "Invalid topic"))?;
         // TODO: Check whether we still need topic or not (Compare topic with listener?)
 
         if !self.subscriber_map.lock().unwrap().contains_key(listener) {
