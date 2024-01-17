@@ -24,7 +24,7 @@ use uprotocol_sdk::{
     transport::{datamodel::UTransport, validator::Validators},
     uprotocol::{
         Data, UAttributes, UCode, UEntity, UMessage, UMessageType, UPayload, UPayloadFormat,
-        UStatus, UUri, Uuid,
+        UPriority, UStatus, UUri, Uuid,
     },
     uri::{
         serializer::{LongUriSerializer, UriSerializer},
@@ -92,6 +92,22 @@ impl ULinkZenoh {
         Ok(zenoh_key)
     }
 
+    #[allow(clippy::match_same_arms)]
+    fn map_zenoh_priority(upriority: UPriority) -> Priority {
+        match upriority {
+            UPriority::UpriorityCs0 => Priority::Background,
+            UPriority::UpriorityCs1 => Priority::DataLow,
+            UPriority::UpriorityCs2 => Priority::Data,
+            UPriority::UpriorityCs3 => Priority::DataHigh,
+            UPriority::UpriorityCs4 => Priority::InteractiveLow,
+            UPriority::UpriorityCs5 => Priority::InteractiveHigh,
+            UPriority::UpriorityCs6 => Priority::RealTime,
+            // If uProtocol prioritiy isn't specified, use CS1(DataLow) by default.
+            // https://github.com/eclipse-uprotocol/uprotocol-spec/blob/main/basics/qos.adoc
+            UPriority::UpriorityUnspecified => Priority::DataLow,
+        }
+    }
+
     // TODO: We need a standard way in uprotocol-rust to change UUID to String
     fn uuid_to_string(uuid: &Uuid) -> String {
         format!("{}:{}", uuid.msb, uuid.lsb)
@@ -113,7 +129,7 @@ impl ULinkZenoh {
         };
 
         // Serialized UAttributes into protobuf
-        // TODO: Should we map priority into Zenoh priority?
+        let priority = ULinkZenoh::map_zenoh_priority(attributes.priority());
         let mut attr = vec![];
         let Ok(()) = attributes.encode(&mut attr) else {
             return Err(UStatus::fail_with_code(
@@ -132,6 +148,7 @@ impl ULinkZenoh {
                 KnownEncoding::AppCustom,
                 payload.format.to_string().into(),
             ))
+            .priority(priority)
             .with_attachment(attachment.build());
 
         // Send data
@@ -159,7 +176,6 @@ impl ULinkZenoh {
         };
 
         // Serialized UAttributes into protobuf
-        // TODO: Should we map priority into Zenoh priority?
         let mut attr = vec![];
         let Ok(()) = attributes.encode(&mut attr) else {
             return Err(UStatus::fail_with_code(
@@ -252,7 +268,6 @@ impl RpcClient for ULinkZenoh {
         };
 
         // Serialized UAttributes into protobuf
-        // TODO: Should we map priority into Zenoh priority?
         let mut attr = vec![];
         let Ok(()) = attributes.encode(&mut attr) else {
             return Err(RpcMapperError::ProtobufError(String::from(
