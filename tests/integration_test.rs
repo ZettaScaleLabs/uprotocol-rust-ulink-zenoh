@@ -27,11 +27,8 @@ use uprotocol_sdk::{
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;
 
-#[async_std::test]
-async fn test_utransport_register_and_unregister() {
-    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
-    // create uuri
-    let uuri = UUri {
+fn create_utransport_uuri() -> UUri {
+    UUri {
         entity: Some(UEntity {
             name: "body.access".to_string(),
             version_major: Some(1),
@@ -44,19 +41,44 @@ async fn test_utransport_register_and_unregister() {
             ..Default::default()
         }),
         ..Default::default()
-    };
+    }
+}
+
+fn create_rpcserver_uuri() -> UUri {
+    UUri {
+        entity: Some(UEntity {
+            name: "test_rpc.app".to_string(),
+            version_major: Some(1),
+            ..Default::default()
+        }),
+        resource: Some(UResourceBuilder::for_rpc_request(
+            Some("SimpleTest".to_string()),
+            None,
+        )),
+        ..Default::default()
+    }
+}
+
+#[async_std::test]
+async fn test_utransport_register_and_unregister() {
+    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
+    let uuri = create_utransport_uuri();
+
+    // Compare the return string
     let listener_string = to_test
         .register_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
     assert_eq!(listener_string, "body.access/1/door.front_left\\3Door_0");
-    // Should succeed
+
+    // Able to ungister
     let result = to_test
         .unregister_listener(uuri.clone(), &listener_string)
         .await
         .unwrap();
     assert_eq!(result, ());
-    // Should fail
+
+    // Unable to ungister
     let result = to_test
         .unregister_listener(uuri.clone(), &listener_string)
         .await;
@@ -72,31 +94,23 @@ async fn test_utransport_register_and_unregister() {
 #[async_std::test]
 async fn test_rpcserver_register_and_unregister() {
     let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
-    // create uuri
-    let uuri = UUri {
-        entity: Some(UEntity {
-            name: "test_rpc.app".to_string(),
-            version_major: Some(1),
-            ..Default::default()
-        }),
-        resource: Some(UResourceBuilder::for_rpc_request(
-            Some("SimpleTest".to_string()),
-            None,
-        )),
-        ..Default::default()
-    };
+    let uuri = create_rpcserver_uuri();
+
+    // Compare the return string
     let listener_string = to_test
         .register_rpc_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
     assert_eq!(listener_string, "test_rpc.app/1/rpc.SimpleTest_0");
-    // Should succeed
+
+    // Able to ungister
     let result = to_test
         .unregister_rpc_listener(uuri.clone(), &listener_string)
         .await
         .unwrap();
     assert_eq!(result, ());
-    // Should fail
+
+    // Unable to ungister
     let result = to_test
         .unregister_rpc_listener(uuri.clone(), &listener_string)
         .await;
@@ -113,23 +127,9 @@ async fn test_rpcserver_register_and_unregister() {
 async fn test_publish_and_subscribe() {
     let target_data = String::from("Hello World!");
     let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
-    // create uuri
-    let uuri = UUri {
-        entity: Some(UEntity {
-            name: "body.access".to_string(),
-            version_major: Some(1),
-            ..Default::default()
-        }),
-        resource: Some(UResource {
-            name: "door".to_string(),
-            instance: Some("front_left".to_string()),
-            message: Some("Door".to_string()),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
+    let uuri = create_utransport_uuri();
 
-    // register the listener
+    // Register the listener
     let uuri_compared = uuri.clone();
     let data_compared = target_data.clone();
     let listener = move |result: Result<UMessage, UStatus>| match result {
@@ -149,7 +149,7 @@ async fn test_publish_and_subscribe() {
         .await
         .unwrap();
 
-    // create uattributes
+    // Create uattributes
     let attributes = UAttributesBuilder::publish(UPriority::UpriorityCs4).build();
 
     // Publish the data
@@ -165,6 +165,7 @@ async fn test_publish_and_subscribe() {
 
     task::sleep(time::Duration::from_millis(1000)).await;
 
+    // Cleanup
     to_test
         .unregister_listener(uuri.clone(), &listener_string)
         .await
@@ -179,19 +180,8 @@ async fn test_rpc_server_client() {
     ));
     let client_data = String::from("This is the client data");
     let server_data = String::from("This is the server data");
-    // create uuri
-    let uuri = UUri {
-        entity: Some(UEntity {
-            name: "test_rpc.app".to_string(),
-            version_major: Some(1),
-            ..Default::default()
-        }),
-        resource: Some(UResourceBuilder::for_rpc_request(
-            Some("SimpleTest".to_string()),
-            None,
-        )),
-        ..Default::default()
-    };
+    let uuri = create_rpcserver_uuri();
+
     // setup RpcServer callback
     let to_test_server_cloned = to_test_server.clone();
     let server_data_cmp = server_data.clone();
@@ -243,8 +233,7 @@ async fn test_rpc_server_client() {
         .await
         .unwrap();
 
-    // Run RpcClient
-    // create uattributes
+    // Create uattributes
     // TODO: Check TTL (Should TTL map to Zenoh's timeout?)
     // TODO: It's a little strange to create UUID by users
     let attributes = UAttributesBuilder::request(UPriority::UpriorityCs4, uuri.clone(), 100)
@@ -253,7 +242,8 @@ async fn test_rpc_server_client() {
             lsb: 0x8000000000000000u64,
         })
         .build();
-    // create uPayload
+
+    // Run RpcClient
     let payload = UPayload {
         length: Some(0),
         format: UPayloadFormat::UpayloadFormatText as i32,
@@ -263,7 +253,7 @@ async fn test_rpc_server_client() {
         .invoke_method(uuri, payload, attributes)
         .await;
 
-    // process the result
+    // Process the result
     if let Data::Value(v) = result.unwrap().data.unwrap() {
         let value = v.into_iter().map(|c| c as char).collect::<String>();
         assert_eq!(server_data, value);
