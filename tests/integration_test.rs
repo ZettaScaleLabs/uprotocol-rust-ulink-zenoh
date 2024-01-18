@@ -27,33 +27,37 @@ use uprotocol_sdk::{
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;
 
+// TODO: Need to check whether the way to create ID is correct?
 fn create_utransport_uuri() -> UUri {
     UUri {
         entity: Some(UEntity {
             name: "body.access".to_string(),
             version_major: Some(1),
+            id: Some(1234),
             ..Default::default()
         }),
         resource: Some(UResource {
             name: "door".to_string(),
             instance: Some("front_left".to_string()),
             message: Some("Door".to_string()),
-            ..Default::default()
+            id: Some(5678),
         }),
         ..Default::default()
     }
 }
 
+// TODO: Need to check whether the way to create ID is correct?
 fn create_rpcserver_uuri() -> UUri {
     UUri {
         entity: Some(UEntity {
             name: "test_rpc.app".to_string(),
             version_major: Some(1),
+            id: Some(1234),
             ..Default::default()
         }),
         resource: Some(UResourceBuilder::for_rpc_request(
             Some("SimpleTest".to_string()),
-            None,
+            Some(5678),
         )),
         ..Default::default()
     }
@@ -69,7 +73,7 @@ async fn test_utransport_register_and_unregister() {
         .register_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
-    assert_eq!(listener_string, "body.access/1/door.front_left\\3Door_0");
+    assert_eq!(listener_string, "0100162e04d20100_0");
 
     // Able to ungister
     let result = to_test
@@ -101,7 +105,7 @@ async fn test_rpcserver_register_and_unregister() {
         .register_rpc_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
-    assert_eq!(listener_string, "test_rpc.app/1/rpc.SimpleTest_0");
+    assert_eq!(listener_string, "0100162e04d20100_0");
 
     // Able to ungister
     let result = to_test
@@ -203,7 +207,6 @@ async fn test_rpc_server_client() {
                 } else {
                     panic!("The message should be Data::Value type.");
                 }
-                // Get current time
                 let upayload = UPayload {
                     length: Some(0),
                     format: UPayloadFormat::UpayloadFormatText as i32,

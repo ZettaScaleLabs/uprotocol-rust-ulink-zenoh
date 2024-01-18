@@ -26,15 +26,17 @@ async fn main() {
     let rpc_client = ULinkZenoh::new(Config::default()).await.unwrap();
 
     // create uuri
+    // TODO: Need to check whether the way to create ID is correct?
     let uuri = UUri {
         entity: Some(UEntity {
             name: "test_rpc.app".to_string(),
             version_major: Some(1),
+            id: Some(1234),
             ..Default::default()
         }),
         resource: Some(UResourceBuilder::for_rpc_request(
             Some("getTime".to_string()),
-            None,
+            Some(5678),
         )),
         ..Default::default()
     };

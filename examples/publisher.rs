@@ -27,17 +27,19 @@ async fn main() {
     let publisher = ULinkZenoh::new(Config::default()).await.unwrap();
 
     // create uuri
+    // TODO: Need to check whether the way to create ID is correct?
     let uuri = UUri {
         entity: Some(UEntity {
             name: "body.access".to_string(),
             version_major: Some(1),
+            id: Some(1234),
             ..Default::default()
         }),
         resource: Some(UResource {
             name: "door".to_string(),
             instance: Some("front_left".to_string()),
             message: Some("Door".to_string()),
-            ..Default::default()
+            id: Some(5678),
         }),
         ..Default::default()
     };
