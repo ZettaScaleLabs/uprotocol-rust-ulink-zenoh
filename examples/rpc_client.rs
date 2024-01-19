@@ -14,8 +14,9 @@
 use uprotocol_sdk::{
     rpc::RpcClient,
     transport::builder::UAttributesBuilder,
-    uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UUri, Uuid},
+    uprotocol::{Data, UEntity, UPayload, UPayloadFormat, UPriority, UUri},
     uri::builder::resourcebuilder::UResourceBuilder,
+    uuid::builder::UUIDv8Builder,
 };
 use uprotocol_zenoh_rust::ULinkZenoh;
 use zenoh::config::Config;
@@ -43,12 +44,8 @@ async fn main() {
 
     // create uattributes
     // TODO: Check TTL (Should TTL map to Zenoh's timeout?)
-    // TODO: It's a little strange to create UUID by users
     let attributes = UAttributesBuilder::request(UPriority::UpriorityCs4, uuri.clone(), 100)
-        .with_reqid(Uuid {
-            msb: 0x0000000000018000u64,
-            lsb: 0x8000000000000000u64,
-        })
+        .with_reqid(UUIDv8Builder::new().build())
         .build();
 
     // create uPayload
