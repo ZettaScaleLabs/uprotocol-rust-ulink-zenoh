@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2023 ZettaScale Technology
+// Copyright (c) 2024 ZettaScale Technology
 //
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
@@ -27,17 +27,19 @@ async fn main() {
     let publisher = ULinkZenoh::new(Config::default()).await.unwrap();
 
     // create uuri
+    // TODO: Need to check whether the way to create ID is correct?
     let uuri = UUri {
         entity: Some(UEntity {
             name: "body.access".to_string(),
             version_major: Some(1),
+            id: Some(1234),
             ..Default::default()
         }),
         resource: Some(UResource {
             name: "door".to_string(),
             instance: Some("front_left".to_string()),
             message: Some("Door".to_string()),
-            ..Default::default()
+            id: Some(5678),
         }),
         ..Default::default()
     };
