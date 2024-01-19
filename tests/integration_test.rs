@@ -66,25 +66,25 @@ fn create_rpcserver_uuri() -> UUri {
 
 #[async_std::test]
 async fn test_utransport_register_and_unregister() {
-    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
+    let ulinkzenoh = ULinkZenoh::new(Config::default()).await.unwrap();
     let uuri = create_utransport_uuri();
 
     // Compare the return string
-    let listener_string = to_test
+    let listener_string = ulinkzenoh
         .register_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
     assert_eq!(listener_string, "0100162e04d20100_0");
 
     // Able to ungister
-    let result = to_test
+    let result = ulinkzenoh
         .unregister_listener(uuri.clone(), &listener_string)
         .await
         .unwrap();
     assert_eq!(result, ());
 
     // Unable to ungister
-    let result = to_test
+    let result = ulinkzenoh
         .unregister_listener(uuri.clone(), &listener_string)
         .await;
     assert_eq!(
@@ -98,25 +98,25 @@ async fn test_utransport_register_and_unregister() {
 
 #[async_std::test]
 async fn test_rpcserver_register_and_unregister() {
-    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
+    let ulinkzenoh = ULinkZenoh::new(Config::default()).await.unwrap();
     let uuri = create_rpcserver_uuri();
 
     // Compare the return string
-    let listener_string = to_test
+    let listener_string = ulinkzenoh
         .register_rpc_listener(uuri.clone(), Box::new(|_| {}))
         .await
         .unwrap();
     assert_eq!(listener_string, "0100162e04d20100_0");
 
     // Able to ungister
-    let result = to_test
+    let result = ulinkzenoh
         .unregister_rpc_listener(uuri.clone(), &listener_string)
         .await
         .unwrap();
     assert_eq!(result, ());
 
     // Unable to ungister
-    let result = to_test
+    let result = ulinkzenoh
         .unregister_rpc_listener(uuri.clone(), &listener_string)
         .await;
     assert_eq!(
@@ -131,25 +131,25 @@ async fn test_rpcserver_register_and_unregister() {
 #[async_std::test]
 async fn test_publish_and_subscribe() {
     let target_data = String::from("Hello World!");
-    let to_test = ULinkZenoh::new(Config::default()).await.unwrap();
+    let ulinkzenoh = ULinkZenoh::new(Config::default()).await.unwrap();
     let uuri = create_utransport_uuri();
 
     // Register the listener
-    let uuri_compared = uuri.clone();
-    let data_compared = target_data.clone();
+    let uuri_cloned = uuri.clone();
+    let data_cloned = target_data.clone();
     let listener = move |result: Result<UMessage, UStatus>| match result {
         Ok(msg) => {
             if let Data::Value(v) = msg.payload.unwrap().data.unwrap() {
                 let value = v.into_iter().map(|c| c as char).collect::<String>();
-                assert_eq!(msg.source.unwrap(), uuri_compared);
-                assert_eq!(value, data_compared);
+                assert_eq!(msg.source.unwrap(), uuri_cloned);
+                assert_eq!(value, data_cloned);
             } else {
                 panic!("The message should be Data::Value type.");
             }
         }
         Err(ustatus) => println!("Internal Error: {:?}", ustatus),
     };
-    let listener_string = to_test
+    let listener_string = ulinkzenoh
         .register_listener(uuri.clone(), Box::new(listener))
         .await
         .unwrap();
@@ -163,15 +163,16 @@ async fn test_publish_and_subscribe() {
         format: UPayloadFormat::UpayloadFormatText as i32,
         data: Some(Data::Value(target_data.as_bytes().to_vec())),
     };
-    to_test
+    ulinkzenoh
         .send(uuri.clone(), payload, attributes.clone())
         .await
         .unwrap();
 
+    // Waiting for the subscriber to receive data
     task::sleep(time::Duration::from_millis(1000)).await;
 
     // Cleanup
-    to_test
+    ulinkzenoh
         .unregister_listener(uuri.clone(), &listener_string)
         .await
         .unwrap();
@@ -179,8 +180,8 @@ async fn test_publish_and_subscribe() {
 
 #[async_std::test]
 async fn test_rpc_server_client() {
-    let to_test_client = ULinkZenoh::new(Config::default()).await.unwrap();
-    let to_test_server = Arc::new(Mutex::new(
+    let ulinkzenoh_client = ULinkZenoh::new(Config::default()).await.unwrap();
+    let ulinkzenoh_server = Arc::new(Mutex::new(
         ULinkZenoh::new(Config::default()).await.unwrap(),
     ));
     let client_data = String::from("This is the client data");
@@ -188,9 +189,9 @@ async fn test_rpc_server_client() {
     let uuri = create_rpcserver_uuri();
 
     // setup RpcServer callback
-    let to_test_server_cloned = to_test_server.clone();
-    let server_data_cmp = server_data.clone();
-    let client_data_cmp = client_data.clone();
+    let ulinkzenoh_server_cloned = ulinkzenoh_server.clone();
+    let server_data_cloned = server_data.clone();
+    let client_data_cloned = client_data.clone();
     let callback = move |result: Result<UMessage, UStatus>| {
         match result {
             Ok(msg) => {
@@ -204,25 +205,24 @@ async fn test_rpc_server_client() {
                 // Build the payload to send back
                 if let Data::Value(v) = payload.unwrap().data.unwrap() {
                     let value = v.into_iter().map(|c| c as char).collect::<String>();
-                    assert_eq!(client_data_cmp, value);
+                    assert_eq!(client_data_cloned, value);
                 } else {
                     panic!("The message should be Data::Value type.");
                 }
                 let upayload = UPayload {
                     length: Some(0),
                     format: UPayloadFormat::UpayloadFormatText as i32,
-                    data: Some(Data::Value(server_data_cmp.as_bytes().to_vec())),
+                    data: Some(Data::Value(server_data_cloned.as_bytes().to_vec())),
                 };
                 // Set the attributes type to Response
                 let mut uattributes = attributes.unwrap();
                 uattributes.set_type(UMessageType::UmessageTypeResponse);
                 // Send back result
-                block_on(
-                    to_test_server_cloned
-                        .lock()
-                        .unwrap()
-                        .send(uuri, upayload, uattributes),
-                )
+                block_on(ulinkzenoh_server_cloned.lock().unwrap().send(
+                    uuri,
+                    upayload,
+                    uattributes,
+                ))
                 .unwrap();
             }
             Err(ustatus) => {
@@ -230,7 +230,7 @@ async fn test_rpc_server_client() {
             }
         }
     };
-    to_test_server
+    ulinkzenoh_server
         .lock()
         .unwrap()
         .register_rpc_listener(uuri.clone(), Box::new(callback))
@@ -251,7 +251,7 @@ async fn test_rpc_server_client() {
         format: UPayloadFormat::UpayloadFormatText as i32,
         data: Some(Data::Value(client_data.as_bytes().to_vec())),
     };
-    let result = to_test_client
+    let result = ulinkzenoh_client
         .invoke_method(uuri, payload, attributes)
         .await;
 

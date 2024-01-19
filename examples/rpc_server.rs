@@ -47,7 +47,7 @@ async fn main() {
         ..Default::default()
     };
 
-    let rpc_server_callback = rpc_server.clone();
+    let rpc_server_cloned = rpc_server.clone();
     let callback = move |result: Result<UMessage, UStatus>| {
         match result {
             Ok(msg) => {
@@ -74,7 +74,7 @@ async fn main() {
                 uattributes.set_type(UMessageType::UmessageTypeResponse);
                 // Send back result
                 block_on(
-                    rpc_server_callback
+                    rpc_server_cloned
                         .lock()
                         .unwrap()
                         .send(uuri, upayload, uattributes),
