@@ -236,6 +236,8 @@ async fn test_rpc_server_client() {
         .register_rpc_listener(uuri.clone(), Box::new(callback))
         .await
         .unwrap();
+    // Need some time for queryable to run
+    task::sleep(time::Duration::from_millis(1000)).await;
 
     // Create uattributes
     // TODO: Check TTL (Should TTL map to Zenoh's timeout?)
